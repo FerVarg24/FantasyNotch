@@ -12,3 +12,4 @@ Why: a reversible option after 15 min keeps work moving.
 - 1792792993 | FN-005 | descarga completa antes de medir 20MB (limite documentado); user null->notFound (verificado contra API real); redirecciones cortadas | Why: URLSession.data(for:) sin streaming; Sleeper responde 200 null para usuario inexistente
 - 1792793016 | FN-006 | Devuelve [String: Player] reconstruido con los 4 campos guardados; archivo corrupto = sin caché; error de escritura se ignora | Why: Mismo tipo que SleeperAPI.players() para que FN-007/008 no distingan origen; la caché nunca debe tumbar la app
 - 1792793161 | FN-005 | Merge manual del humano tras approve | Why: modo marathon
+- 1792793725 | FN-006 | Sin advisor ni security-reviewer: 262 líneas, sin auth/dinero/migraciones | Why: No cae en diff riesgoso
