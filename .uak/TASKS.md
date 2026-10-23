@@ -98,11 +98,12 @@ Format rules (the CLI parses them):
 - **Depends on:** FN-002
 - **Uses contract:** None
 - **Related:** FN-008, FN-010
-- **Paths:** Packages/SleeperKit/Sources/SleeperKit/API/Client/, Packages/SleeperKit/Tests/SleeperKitTests/API/
+- **Paths:** Packages/SleeperKit/Sources/SleeperKit/API/Client/, Packages/SleeperKit/Sources/SleeperKit/API/SleeperAPI.swift, Packages/SleeperKit/Tests/SleeperKitTests/API/
 - **Freeze-Allowed:** no
 - **Acceptance:**
   - Implementa `SleeperAPI` con `URLSession` async/await contra `https://api.sleeper.app/v1` (host fijo; rechaza otros hosts)
   - Timeout 10 s (30 s para `/players/nfl`), límite de respuesta 20 MB, mapea 404 → `.notFound`, 429 → `.rateLimited`, 5xx → `.server`
+  - Amplía `SleeperAPIError` (contrato de FN-002) con `rateLimited`, `server(status:)`, `responseTooLarge` e `invalidRequest(detail:)`; avisar con `uak msg related:FN-005 --kind contract` antes de hacer push
   - Tests con `URLProtocol` stub sobre los fixtures; ninguna llamada real a la red en tests
   - El username y los IDs se loguean con `privacy: .private`
 - **Verify:** `swift test --package-path Packages/SleeperKit --filter LiveSleeperAPITests`

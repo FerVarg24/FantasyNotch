@@ -14,7 +14,7 @@ An owner is not a prerequisite for everyone: consumers work on published contrac
 | .github/workflows/ci.yml | FN-001 |
 | scripts/verify.sh | FN-001 |
 | .uak/PROJECT.md | FN-001 |
-| Packages/SleeperKit/Sources/SleeperKit/API/SleeperAPI.swift | FN-002 |
+| Packages/SleeperKit/Sources/SleeperKit/API/SleeperAPI.swift | FN-005 |
 | Packages/SleeperKit/Sources/SleeperKit/API/Models/ | FN-002 |
 | Packages/SleeperKit/Sources/SleeperKit/Domain/Models/ | FN-002 |
 | Packages/SleeperKit/Sources/SleeperKitMocks/Fixtures/ | FN-002 |
