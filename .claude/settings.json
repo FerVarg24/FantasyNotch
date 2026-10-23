@@ -58,6 +58,8 @@
       "Bash(ruff:*)",
       "Bash(curl -s http://localhost:*)",
       "Bash(curl -s http://127.0.0.1:*)",
+      "Bash(curl -s https://api.sleeper.app/*)",
+      "Bash(curl -s https://api.sleeper.com/*)",
       "Bash(rg:*)",
       "Bash(ls:*)",
       "Bash(npm --prefix web run:*)",
