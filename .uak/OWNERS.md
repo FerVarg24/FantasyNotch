@@ -5,17 +5,17 @@ An owner is not a prerequisite for everyone: consumers work on published contrac
 
 | Pattern | Owner task |
 |---|---|
-| pyproject.toml | HACK-001 |
-| uv.lock | HACK-001 |
-| package.json | HACK-001 |
-| package-lock.json | HACK-001 |
-| web/package.json | HACK-001 |
-| web/package-lock.json | HACK-001 |
-| app/main.py | HACK-001 |
-| web/src/App.tsx | HACK-001 |
-| app/schemas/ | HACK-002 |
-| web/DESIGN.md | HACK-002 |
-| .github/workflows/ | HACK-001 |
-| .uak/PROJECT.md | HACK-001 |
-
-Delete rows for technologies you don't use. `/uak-plan` creates HACK-001 (setup) and HACK-002 (contract).
+| project.yml | FN-001 |
+| Packages/SleeperKit/Package.swift | FN-001 |
+| App/FantasyNotchApp.swift | FN-001 |
+| App/Info.plist | FN-001 |
+| App/FantasyNotch.entitlements | FN-001 |
+| .github/workflows/ci.yml | FN-001 |
+| scripts/verify.sh | FN-001 |
+| .uak/PROJECT.md | FN-001 |
+| Packages/SleeperKit/Sources/SleeperKit/API/SleeperAPI.swift | FN-002 |
+| Packages/SleeperKit/Sources/SleeperKit/API/Models/ | FN-002 |
+| Packages/SleeperKit/Sources/SleeperKit/Domain/Models/ | FN-002 |
+| Packages/SleeperKit/Sources/SleeperKitMocks/ | FN-002 |
+| docs/DESIGN.md | FN-002 |
+| .github/workflows/release.yml | FN-012 |
