@@ -83,7 +83,7 @@ Backlog-Proposed-Epoch: 0
 Backlog-Approved: yes
 Autonomy: yes
 Auto-Merge: no
-Review-Mode: gh
+Review-Mode: claims
 Plan-Channel: main
 Freeze-Epoch: 0
 Lease-Seconds: 14400
