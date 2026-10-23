@@ -40,7 +40,7 @@ Format rules (the CLI parses them):
 - **Depends on:** FN-001
 - **Uses contract:** None
 - **Related:** FN-003, FN-005, FN-007
-- **Paths:** Packages/SleeperKit/Sources/SleeperKit/API/Models/, Packages/SleeperKit/Sources/SleeperKit/API/SleeperAPI.swift, Packages/SleeperKit/Sources/SleeperKit/Domain/Models/, Packages/SleeperKit/Sources/SleeperKitMocks/, Packages/SleeperKit/Tests/SleeperKitTests/ModelDecodingTests.swift, docs/DESIGN.md
+- **Paths:** Packages/SleeperKit/Sources/SleeperKit/API/Models/, Packages/SleeperKit/Sources/SleeperKit/API/SleeperAPI.swift, Packages/SleeperKit/Sources/SleeperKit/Domain/Models/, Packages/SleeperKit/Sources/SleeperKitMocks/Fixtures/, Packages/SleeperKit/Sources/SleeperKitMocks/MockSleeperAPI.swift, Packages/SleeperKit/Sources/SleeperKitMocks/MatchupSnapshot+Preview.swift, Packages/SleeperKit/Tests/SleeperKitTests/ModelDecodingTests.swift, docs/DESIGN.md
 - **Freeze-Allowed:** no
 - **Acceptance:**
   - Modelos `Codable` para `NFLState`, `SleeperUser`, `League`, `LeagueUser`, `Roster`, `Matchup`, `Player` con opcionales donde Sleeper omite campos
