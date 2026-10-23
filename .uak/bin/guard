@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# uak guards for agent hooks: Claude Code, Codex, Cursor and Gemini CLI (also callable by hand). Bash 3.2+, no jq.
+#   guard bash     (PreToolUse/BeforeTool on the shell tool): blocks destructive or publishing commands
+#                  even when chained (`cd x && git push --force`).
+#   guard shell    (Cursor beforeShellExecution): the same rule on a top-level "command".
+#   guard agent / agent-stop   subagent parallel cap + strong-model budget, scaled by `uak pace`.
+#   guard prompt   (UserPromptSubmit): blocks human messages that contain secrets.
+#   guard check "COMANDO"   manual test of the bash rule (exit 2 = blocked).
+# Why: at Hack-Nation 2026 the settings.json deny list (prefix match) missed a chained force-push
+# and `worktree remove --force`, and a human pasted an API key and a sudo password into the chat.
+# Exit: 0 = allowed; 2 = blocked (Claude Code shows stderr to the agent or human).
+set -u
+LC_ALL=C; export LC_ALL
+MSYS2_ARG_CONV_EXCL="refs/;origin/;HEAD;FETCH_HEAD;:"; export MSYS2_ARG_CONV_EXCL
+
+mode() {
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || { printf 'sprint'; return; }
+  m=$(sed -n 's/^[-* ]*Mode:[* ]*//p' "$top/.uak/PROJECT.md" 2>/dev/null | head -n 1 | tr -d '\r `')
+  case "$m" in marathon) printf 'marathon';; *) printf 'sprint';; esac
+}
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# Every block also goes to the black box: a rule that fires often is friction worth fixing.
+block() { printf 'UAK_GUARD: blocked · %s\n' "$*" >&2; bash "$here/bb" auto guard guard "$*" >/dev/null 2>&1 || true; exit 2; }
+
+# Split into segments on ; && || | and newlines (including JSON-escaped \n).
+segments() {
+  # awk, not sed: BSD sed (macOS) does not turn \n into a newline in replacements.
+  printf '%s\n' "$1" | awk '{ gsub(/\\n|&&|\|\||;|\|/, "\n"); print }'
+}
+
+check_bash() {
+  cmd=$1 m=$(mode)
+  while IFS= read -r seg; do
+    s=" $seg "
+    case "$s" in *git*push*)
+      if printf '%s' "$s" | grep -Eq -- '(^|[[:space:]])(--force|--force-with-lease|-f|--mirror)([[:space:]=]|$)|[[:space:]]\+[A-Za-z0-9_./-]+'; then
+        block "forced push rewrites shared history. Use git merge origin/main and a normal push."
+      fi
+      if printf '%s' "$s" | grep -Eq -- '(^|[[:space:]])(--delete|-d)([[:space:]]|$)|[[:space:]]:[A-Za-z0-9_./-]+'; then
+        block "deleting remote branches is for the branch's human owner."
+      fi;;
+    esac
+    printf '%s' "$s" | grep -Eq 'git[[:space:]].*reset[[:space:]].*--hard' &&
+      block "git reset --hard destroys uncommitted work. Use git stash or a wip: commit."
+    printf '%s' "$s" | grep -Eq 'git[[:space:]].*clean[[:space:]]+-[A-Za-z]*f' &&
+      block "git clean -f deletes untracked files (including .env). Delete your files one by one."
+    printf '%s' "$s" | grep -Eq 'git[[:space:]].*worktree[[:space:]]+remove.*(--force|[[:space:]]-f([[:space:]]|$))' &&
+      block "worktree remove --force loses uncommitted changes. Use bash .uak/bin/wt rm ID."
+    printf '%s' "$s" | grep -Eq 'git[[:space:]].*branch[[:space:]].*(-D|--delete[[:space:]]+--force)' &&
+      block "git branch -D: delete only your merged branches, with -d."
+    printf '%s' "$s" | grep -Eq '(^|[[:space:]])--no-verify([[:space:]]|$)' &&
+      block "--no-verify skips the pre-commit secret scanner."
+    printf '%s' "$s" | grep -Eq '(^|[[:space:]])(pkill[[:space:]]+(-[A-Za-z0-9]+[[:space:]]+)*-[A-Za-z]*f|killall)([[:space:]]|$)' &&
+      block "pkill -f/killall match by pattern and can kill your own shell or other agents' servers (UpiixSol). Kill exact PIDs: bash .uak/bin/wt stop, or kill \$(lsof -ti tcp:\$UAK_PORT)."
+    printf '%s' "$s" | grep -Eq '(^|[[:space:]])sudo([[:space:]]|$)' &&
+      block "sudo needs the human: ask them to run it themselves. Never ask for or use their password."
+    printf '%s' "$s" | grep -Eq 'rm[[:space:]]+-[A-Za-z]*[rR][A-Za-z]*[[:space:]]+(-[A-Za-z]+[[:space:]]+)*("|'"'"')?(/|~|\$HOME|\.\.|\.git([[:space:]/]|$)|\*)' &&
+      block "rm -r outside your worktree or on .git. Delete concrete relative paths of your task."
+    printf '%s' "$s" | grep -Eq '(curl|wget)[[:space:]].*' && printf '%s\n' "$cmd" | grep -Eq '(curl|wget)[^|]*\|[[:space:]]*(ba|z)?sh' &&
+      block "curl | sh runs unreviewed remote code. Download, read, then run."
+    printf '%s' "$s" | grep -Eq '(npm|pnpm|yarn)[[:space:]]+publish|(uv|poetry)[[:space:]]+publish|twine[[:space:]]+upload|gh[[:space:]]+(repo[[:space:]]+(create|delete|edit)|release[[:space:]]+create)|docker[[:space:]]+push' &&
+      block "publishing outside the repo is a human action."
+    if [ "$m" = marathon ]; then
+      printf '%s' "$s" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+merge|git[[:space:]].*push[[:space:]].*[[:space:]](main|master|release[^[:space:]]*)([[:space:]]|$)' &&
+        block "marathon mode: main changes only via PR with green CI and human CODEOWNERS approval."
+      printf '%s' "$s" | grep -Eq '(npm|pnpm|yarn)[[:space:]]+(install|add|i)[[:space:]]+[^-]|uv[[:space:]]+add[[:space:]]|pip[[:space:]]+install[[:space:]]+[^-]' &&
+        block "marathon mode: a new dependency needs uak decision (license, maintenance, audit) and approval."
+    fi
+  done <<EOF
+$(segments "$cmd")
+EOF
+  # .env reads, checked on the command with prose removed: a quoted text of 3+ words is a prompt or a message,
+  # not a file operation, unless the command runs it as code (sh -c, eval, ssh).
+  # Why (Reap buildathon): `codex exec "... never cat .env ..."` was blocked as a .env read.
+  envcmd=$cmd
+  printf '%s' "$cmd" | grep -Eq '(^|[[:space:]])((ba|z|da)?sh[[:space:]]+-[a-z]*c|eval|ssh|xargs)([[:space:]]|$)' || envcmd=$(strip_prose "$cmd")
+  while IFS= read -r seg; do
+    printf '%s' " $seg " | grep -Eq '(cat|less|more|head|tail|bat|grep|rg|sed|awk|cp|scp|base64|xxd|strings|source|\.)[[:space:]]([^#]*[[:space:]/"'"'"'])?["'"'"']?\.env(\.(local|production|prod|dev|development|staging))?["'"'"']?([[:space:]]|$)' &&
+      block ".env holds secrets and never enters context. Read .env.example or ask which variable exists."
+  done <<EOF
+$(segments "$envcmd")
+EOF
+  return 0
+}
+strip_prose() {
+  printf '%s\n' "$1" | awk 'BEGIN { q = sprintf("%c", 39); re = "\"[^\"]*\"|" q "[^" q "]*" q }
+  {
+    s = $0; out = ""
+    while (match(s, re)) {
+      t = substr(s, RSTART, RLENGTH); n = split(t, w, /[[:space:]]+/)
+      out = out substr(s, 1, RSTART - 1) (n >= 3 ? "\"\"" : t); s = substr(s, RSTART + RLENGTH)
+    }
+    print out s }'
+}
+
+check_prompt() {
+  text=$1
+  hit=
+  printf '%s' "$text" | grep -Eq 'sk-(proj-|ant-|live_|test_)?[A-Za-z0-9_-]{20,}' && hit='API key (sk-…)'
+  printf '%s' "$text" | grep -Eq 'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}' && hit='GitHub token'
+  printf '%s' "$text" | grep -Eq 'AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}' && hit='AWS key'
+  printf '%s' "$text" | grep -Eq 'AIza[0-9A-Za-z_-]{35}' && hit='Google API key'
+  printf '%s' "$text" | grep -Eq 'xox[abprs]-[A-Za-z0-9-]{10,}' && hit='Slack token'
+  printf '%s' "$text" | grep -Eq -- '-----BEGIN [A-Z ]*PRIVATE KEY-----' && hit='private key'
+  printf '%s' "$text" | grep -Eiq '(contrase(n|ñ|\\u00f1)a|password|passwd|clave)[^.]{0,30}(sudo|root|admin|es|is|:|=)[[:space:]]*[^[:space:]]{6,}' && hit='password'
+  [ -z "$hit" ] && return 0
+  printf 'UAK_GUARD: your message looks like it contains a secret (%s); it was NOT sent to the agent.\n' "$hit" >&2
+  printf '%s\n' '- Put it in .env (git-ignored) from your editor; the agent only needs the variable name.' \
+    '- If you already pasted it elsewhere, rotate it.' \
+    '- Run sudo commands yourself; the agent never needs your password.' >&2
+  exit 2
+}
+
+# Extract a string field from flat JSON (enough for hook payloads).
+json_field() {
+  awk -v key="$1" 'BEGIN {RS="\001"} {
+    k="\"" key "\""; i=index($0,k); if(!i) exit
+    s=substr($0,i+length(k)); sub(/^[[:space:]]*:[[:space:]]*"/,"",s)
+    out=""; n=length(s)
+    for(j=1;j<=n;j++){c=substr(s,j,1); if(c=="\\"){out=out c substr(s,j+1,1); j++; continue} if(c=="\"") break; out=out c}
+    gsub(/\\"/,"\"",out); gsub(/\\\\/,"\\",out); print out}'
+}
+
+# Subagent resource manager (PreToolUse matcher Agent|Task, and SubagentStop).
+# Why: ultracode is exempt from Claude Code's concurrency cap, and one prompt can fan out dozens of
+# Opus subagents. Budgets come from .uak/PROJECT.md: Max-Parallel-Subagents, Opus-Subagents-Per-Session.
+cfg() { top=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '%s' "$2"; return; }
+  v=$(sed -n "s/^[-* ]*$1:[* ]*//p" "$top/.uak/PROJECT.md" 2>/dev/null | head -n 1 | tr -d '\r `')
+  case "$v" in ''|*[!0-9]*) printf '%s' "$2";; *) printf '%s' "$v";; esac; }
+model_of_agent() { # $1 agent type → model declared by its definition in any harness
+  top=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  for f in "$top/.cursor/agents/$1.md" "$top/.claude/agents/$1.md" "$top/.gemini/agents/$1.md"; do
+    [ -f "$f" ] && { sed -n 's/^model:[[:space:]]*//p' "$f" | head -n 1 | tr -d '\r"'"'"; return; }
+  done
+  f="$top/.codex/agents/$1.toml"
+  [ -f "$f" ] && sed -n 's/^model[[:space:]]*=[[:space:]]*//p' "$f" | head -n 1 | tr -d '\r"'"'"
+}
+# Tiers are harness-neutral. Order matters: gpt-5.6-sol is the strong model of its family, gpt-6.1-sol the balanced one.
+tier_class() {
+  case "$(printf '%s' "$1" | tr 'A-Z' 'a-z')" in
+    ''|inherit) printf inherit;;
+    *opus*|*fable*|*mythos*|*astra*|*gpt-5.6-sol*|*gpt-5-6-sol*|best) printf strong;;
+    *haiku*|*luna*|*composer*|*flash*|*-mini*|*-nano*) printf fast;;
+    *sonnet*|*sol*|*terra*|*gemini*pro*|*gpt-*) printf balanced;;
+    *) printf inherit;;
+  esac
+}
+tier_of() { # $1 model param, $2 subagent type → strong|balanced|fast|inherit
+  m=$1
+  [ -n "$m" ] || m=$(model_of_agent "$2")
+  if [ -z "$m" ]; then
+    case "$2" in
+      general-purpose|Explore|Plan) m=${CLAUDE_CODE_SUBAGENT_MODEL:-};;
+      default|worker|explorer)
+        top=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+        m=$(sed -n 's/^default_subagent_model[[:space:]]*=[[:space:]]*//p' "$top/.codex/config.toml" 2>/dev/null | head -n 1 | tr -d '\r"');;
+    esac
+  fi
+  tier_class "$m"
+}
+check_agent() {
+  input=$1 gd=$(git rev-parse --git-dir 2>/dev/null || printf '%s' "${TMPDIR:-/tmp}")
+  now=${UAK_NOW:-$(date +%s)}
+  type=$(printf '%s' "$input" | json_field subagent_type); [ -n "$type" ] || type=$(printf '%s' "$input" | json_field agent_type)
+  # Claude Code puts the chosen model in tool_input; Codex/Cursor start events carry the PARENT's model, so ignore it.
+  case "$input" in *'"tool_name"'*) model=$(printf '%s' "$input" | json_field model);; *) model=;; esac
+  sid=$(printf '%s' "$input" | json_field session_id); sid=${sid:-default}
+  tier=$(tier_of "$model" "$type")
+  # `uak pace` scales both caps with plan usage: surge 2x, conserve 1/2, critical 1 and no strong model.
+  set -- $(bash "$here/pace" --caps 2>/dev/null)
+  level=${1:-unknown} max=${2:-} opus_max=${3:-}
+  case "$max" in ''|*[!0-9]*) max=$(cfg Max-Parallel-Subagents 4);; esac
+  case "$opus_max" in ''|*[!0-9]*) opus_max=$(cfg Opus-Subagents-Per-Session 2);; esac
+  why=; case "$level" in surge|conserve|critical) why=" (pace $level: uak pace)";; esac
+  # Hard limits: fixed numbers that pacing can lower but never raise. Why: if a usage reading is wrong
+  # (stale cache, a bad manual entry, a vendor format change), a surge must not empty the plan in minutes.
+  case "$(mode)" in marathon) d_hard=4 d_strong=4 d_total=30 d_machine=6;; *) d_hard=6 d_strong=3 d_total=40 d_machine=8;; esac
+  hard=$(cfg Subagent-Hard-Cap "$d_hard"); strong_hard=$(cfg Strong-Hard-Cap "$d_strong")
+  total_max=$(cfg Subagents-Per-Session "$d_total"); machine_max=$(cfg Subagents-Per-Machine "$d_machine")
+  burst_max=$(cfg Subagent-Burst-Per-Minute 6)
+  [ "$max" -le "$hard" ] || max=$hard
+  [ "$opus_max" -le "$strong_hard" ] || opus_max=$strong_hard
+  act="$gd/uak-agents.active" log="$gd/uak-agents.log"
+  touch "$act" "$log"
+  # Reservations older than 20 min are stale (a crashed subagent never sent SubagentStop).
+  awk -v now="$now" '$1 + 1200 > now' "$act" > "$act.tmp" && mv "$act.tmp" "$act"
+  spawned=$(awk -v s="$sid" '$2 == s' "$log" | awk 'END {print NR+0}')
+  [ "$spawned" -lt "$total_max" ] ||
+    block "this session already spawned $spawned subagents (Subagents-Per-Session: $total_max). Hand off (/uak-handoff) and start a fresh session, or a human raises the limit in .uak/PROJECT.md."
+  burst=$(awk -v s="$sid" -v now="$now" '$2 == s && $1 + 60 > now' "$log" | awk 'END {print NR+0}')
+  [ "$burst" -lt "$burst_max" ] ||
+    block "$burst subagents spawned in the last minute (Subagent-Burst-Per-Minute: $burst_max). A loop that spawns agents is a bug: stop and check the plan."
+  # Machine-wide: every worktree of this repo shares one plan, so count all of their running subagents.
+  cd_common=$(git rev-parse --git-common-dir 2>/dev/null) && cd_common=$(cd "$cd_common" 2>/dev/null && pwd -P) || cd_common=
+  if [ -n "$cd_common" ]; then
+    machine=$(for f in "$cd_common/uak-agents.active" "$cd_common"/worktrees/*/uak-agents.active; do
+      [ -f "$f" ] && awk -v now="$now" '$1 + 1200 > now' "$f"; done | awk 'END {print NR+0}')
+    [ "$machine" -lt "$machine_max" ] ||
+      block "$machine subagents are running across all worktrees on this machine (Subagents-Per-Machine: $machine_max). Wait for one, or do the step yourself."
+  fi
+  running=$(awk 'END {print NR+0}' "$act")
+  [ "$running" -lt "$max" ] ||
+    block "$running subagents already running (Max-Parallel-Subagents: $max$why). Wait for one to finish, or do the step yourself; a swarm costs more than it saves."
+  if [ "$tier" = strong ] && [ "${UAK_ALLOW_OPUS:-}" != 1 ]; then
+    used=$(awk -v s="$sid" '$2 == s && ($3 == "strong" || $3 == "opus")' "$log" | awk 'END {print NR+0}')
+    [ "$used" -lt "$opus_max" ] ||
+      block "Opus subagent budget (strong tier: Opus, Astra, GPT-5.6 Sol) for this session is spent ($used/$opus_max$why). Use the advisor at a checkpoint, a fast scout to read, or a balanced reviewer. A human can raise Opus-Subagents-Per-Session or set UAK_ALLOW_OPUS=1."
+  fi
+  printf '%s %s %s %s\n' "$now" "$sid" "$tier" "${type:-unknown}" >> "$log"
+  printf '%s %s %s\n' "$now" "$tier" "${type:-unknown}" >> "$act"
+  return 0
+}
+agent_stop() {
+  gd=$(git rev-parse --git-dir 2>/dev/null) || return 0
+  act="$gd/uak-agents.active"; [ -s "$act" ] || return 0
+  sed '1d' "$act" > "$act.tmp" && mv "$act.tmp" "$act"
+}
+
+shell_tool() { # tool names of the shell in each harness' PreToolUse/BeforeTool payload
+  case "$1" in *'"tool_name":"Bash"'*|*'"tool_name": "Bash"'*|*'"tool_name":"Shell"'*|*'"tool_name": "Shell"'*|\
+    *'"tool_name":"shell"'*|*'"tool_name": "shell"'*|*'"tool_name":"exec_command"'*|*'"tool_name": "exec_command"'*|\
+    *'"tool_name":"local_shell"'*|*'"tool_name": "local_shell"'*|*'"tool_name":"run_shell_command"'*|*'"tool_name": "run_shell_command"'*) return 0;; esac
+  return 1
+}
+case "${1:-}" in
+  agent)
+    input=$(cat 2>/dev/null || true)
+    case "$input" in
+      *'"tool_name":"Agent"'*|*'"tool_name": "Agent"'*|*'"tool_name":"Task"'*|*'"tool_name": "Task"'*) ;;   # Claude Code, Cursor preToolUse
+      *'"hook_event_name":"SubagentStart"'*|*'"hook_event_name": "SubagentStart"'*|*'"hook_event_name":"subagentStart"'*|*'"hook_event_name": "subagentStart"'*) ;;  # Codex, Cursor
+      *) exit 0;;
+    esac
+    check_agent "$input";;
+  agent-stop) cat >/dev/null 2>&1 || true; agent_stop;;
+  bash)
+    input=$(cat 2>/dev/null || true)
+    shell_tool "$input" || exit 0
+    check_bash "$(printf '%s' "$input" | json_field command)";;
+  shell)
+    input=$(cat 2>/dev/null || true)
+    check_bash "$(printf '%s' "$input" | json_field command)";;
+  prompt)
+    input=$(cat 2>/dev/null || true)
+    check_prompt "$(printf '%s' "$input" | json_field prompt)";;
+  check) check_bash "${2:-}"; printf 'UAK_GUARD: allowed\n';;
+  check-prompt) check_prompt "${2:-}"; printf 'UAK_GUARD: allowed\n';;
+  tier) printf '%s\n' "$(tier_class "${2:-}")";;
+  *) printf '%s\n' 'Usage: guard bash|shell|prompt|agent|agent-stop (hook JSON on stdin) · guard check "CMD" · guard check-prompt "TEXT" · guard tier MODEL' >&2; exit 2;;
+esac
+exit 0

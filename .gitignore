@@ -1,0 +1,22 @@
+.env
+.env.*
+!.env.example
+.uak-env
+.claude/settings.local.json
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+node_modules/
+.next/
+dist/
+.DS_Store
+
+# Xcode / Swift (el .xcodeproj se genera con XcodeGen desde project.yml)
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+.build/
+.swiftpm/
+xcuserdata/
+*.xcuserstate
