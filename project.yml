@@ -1,0 +1,39 @@
+name: FantasyNotch
+options:
+  bundleIdPrefix: com.fervarg
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    ARCHS: arm64
+    ONLY_ACTIVE_ARCH: YES
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+packages:
+  DynamicNotchKit:
+    url: https://github.com/MrKai77/DynamicNotchKit
+    exactVersion: 1.1.0
+  SleeperKit:
+    path: Packages/SleeperKit
+targets:
+  FantasyNotch:
+    type: application
+    platform: macOS
+    sources:
+      - App
+    dependencies:
+      - package: DynamicNotchKit
+      - package: SleeperKit
+        product: SleeperKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.fervarg.FantasyNotch
+        INFOPLIST_FILE: App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: App/FantasyNotch.entitlements
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_APP_SANDBOX: YES
+        ENABLE_HARDENED_RUNTIME: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
