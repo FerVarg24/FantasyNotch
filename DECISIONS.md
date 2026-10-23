@@ -9,3 +9,4 @@ Why: a reversible option after 15 min keeps work moving.
 - 1792791437 | FN-012 | dry-run compila, empaqueta y valida el zip en tmp sin dejar dist/ | Why: mismo flujo local y CI sin publicar
 - 1792791720 | FN-002 | PlayStatus como plan.md (pending/playing/done/unknown); fixtures en SleeperKitMocks/Fixtures; sin cliente HTTP | Why: criterio exacto de plan.md; Package.swift define resources en SleeperKitMocks
 - 1792791967 | FN-002 | Merge manual del humano tras approve; PlayStatus segun plan.md | Why: modo marathon; criterio de la tarea
+- 1792792993 | FN-005 | descarga completa antes de medir 20MB (limite documentado); user null->notFound (verificado contra API real); redirecciones cortadas | Why: URLSession.data(for:) sin streaming; Sleeper responde 200 null para usuario inexistente
