@@ -1,0 +1,165 @@
+[
+  {
+    "avatar": null,
+    "display_name": "Manager 1",
+    "is_bot": null,
+    "is_owner": true,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on",
+      "team_name": "Equipo 1"
+    },
+    "user_id": "900000000000000001"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 2",
+    "is_bot": null,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "off"
+    },
+    "user_id": "900000000000000002"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 3",
+    "is_bot": null,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on",
+      "team_name": "Equipo 3"
+    },
+    "user_id": "900000000000000003"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 4",
+    "is_bot": null,
+    "is_owner": true,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on",
+      "team_name": "Equipo 4"
+    },
+    "user_id": "900000000000000004"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 5",
+    "is_bot": null,
+    "is_owner": true,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "off"
+    },
+    "user_id": "900000000000000005"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 6",
+    "is_bot": null,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "off"
+    },
+    "user_id": "900000000000000006"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 7",
+    "is_bot": null,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on",
+      "team_name": "Equipo 7"
+    },
+    "user_id": "900000000000000007"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 8",
+    "is_bot": null,
+    "is_owner": true,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on",
+      "team_name": "Equipo 8"
+    },
+    "user_id": "900000000000000008"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 9",
+    "is_bot": null,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on"
+    },
+    "user_id": "900000000000000009"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 10",
+    "is_bot": false,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "off",
+      "team_name": "Equipo 10"
+    },
+    "user_id": "900000000000000010"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 11",
+    "is_bot": false,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on",
+      "team_name": "Equipo 11"
+    },
+    "user_id": "900000000000000011"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 12",
+    "is_bot": false,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "off",
+      "team_name": "Equipo 12"
+    },
+    "user_id": "900000000000000012"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 13",
+    "is_bot": false,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on",
+      "team_name": "Equipo 13"
+    },
+    "user_id": "900000000000000013"
+  },
+  {
+    "avatar": null,
+    "display_name": "Manager 14",
+    "is_bot": false,
+    "is_owner": false,
+    "league_id": "910000000000000001",
+    "metadata": {
+      "allow_pn": "on"
+    },
+    "user_id": "900000000000000014"
+  }
+]
