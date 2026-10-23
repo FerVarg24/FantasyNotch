@@ -17,6 +17,8 @@ An owner is not a prerequisite for everyone: consumers work on published contrac
 | Packages/SleeperKit/Sources/SleeperKit/API/SleeperAPI.swift | FN-002 |
 | Packages/SleeperKit/Sources/SleeperKit/API/Models/ | FN-002 |
 | Packages/SleeperKit/Sources/SleeperKit/Domain/Models/ | FN-002 |
-| Packages/SleeperKit/Sources/SleeperKitMocks/ | FN-002 |
+| Packages/SleeperKit/Sources/SleeperKitMocks/Fixtures/ | FN-002 |
+| Packages/SleeperKit/Sources/SleeperKitMocks/MockSleeperAPI.swift | FN-002 |
+| Packages/SleeperKit/Sources/SleeperKitMocks/MatchupSnapshot+Preview.swift | FN-002 |
 | docs/DESIGN.md | FN-002 |
 | .github/workflows/release.yml | FN-012 |
