@@ -1,6 +1,6 @@
 # Shared instructions
 
-@AGENTS.md
+@../AGENTS.md
 
 Load `.uak/docs/` only when `AGENTS.md` §7 or your mode says so. Minimal context leaves tokens for the task.
 

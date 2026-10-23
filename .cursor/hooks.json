@@ -43,6 +43,19 @@
         "command": "bash .uak/bin/bb flush --quiet",
         "timeout": 30
       }
+    ],
+    "postToolUse": [
+      {
+        "command": "bash .uak/bin/hook tick cursor",
+        "matcher": "*",
+        "timeout": 10
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "bash .uak/bin/hook session-end",
+        "timeout": 20
+      }
     ]
   }
 }

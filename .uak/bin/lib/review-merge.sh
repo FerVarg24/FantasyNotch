@@ -110,10 +110,11 @@ rm_main_merges_only() {
     p1=$(git -C "$TX" rev-parse -q --verify "$c^1" 2>/dev/null) || return 1
     p2=$(git -C "$TX" rev-parse -q --verify "$c^2" 2>/dev/null) || return 1
     ! git -C "$TX" rev-parse -q --verify "$c^3" >/dev/null 2>&1 || return 1
-    # The branch side is the parent that is not in the base (a merge made from main has them swapped).
-    if git -C "$TX" merge-base --is-ancestor "$p1" refs/uak/base && ! git -C "$TX" merge-base --is-ancestor "$p2" refs/uak/base; then
-      t=$p1; p1=$p2; p2=$t
-    fi
+    # The branch side is the parent that contains the approved SHA (a merge made from main has the parents
+    # swapped; so does the PR's own merge commit once the branch is fast-forwarded to main after a forge merge).
+    # Why (MLB hackathon): 8 integrate refusals and 2 black box notes after "merge on GitHub, then pull main".
+    if ! git -C "$TX" merge-base --is-ancestor "$1" "$p1" 2>/dev/null; then t=$p1; p1=$p2; p2=$t; fi
+    git -C "$TX" merge-base --is-ancestor "$1" "$p1" 2>/dev/null || return 1
     git -C "$TX" merge-base --is-ancestor "$p2" refs/uak/base || return 1
     t=$(rm_clean_merge_tree "$p1" "$p2") || return 1
     [ -n "$t" ] && [ "$t" = "$(git -C "$TX" rev-parse "$c^{tree}")" ] || return 1
@@ -458,7 +459,7 @@ rm_gate_scope() {
     # Shared resources first, so the reason says what it really is (MLB: the smoke provenance file, written by
     # init-smoke, was reported as "outside Paths").
     case "/$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')/" in
-      */contracts/*|*/types/*|*/shared-types/*|*/migrations/*|*/.github/workflows/*|*/.gitlab-ci.yml/*|*/azure-pipelines.yml/*|*/package-lock.json/*|*/pnpm-lock.yaml/*|*/*.lock/*|*/*.lockb/*|*/go.sum/*|*/.uak/bin/smoke/*|*/.uak/bin/smoke-project/*|*/.uak/bin/.smoke-project.provenance/*|*/.uak/bin/secret-scan/*|*/.uak/bin/uak/*|*/.uak/bin/lib/*|*/.uak/bin/uak-coordination/*|*/.githooks/*|*/hackathon.md/*|*/.uak/project.md/*)
+      */contracts/*|*/types/*|*/shared-types/*|*/migrations/*|*/db/migration/*|*/gradle.lockfile/*|*/.github/workflows/*|*/.gitlab-ci.yml/*|*/azure-pipelines.yml/*|*/package-lock.json/*|*/pnpm-lock.yaml/*|*/*.lock/*|*/*.lockb/*|*/go.sum/*|*/.uak/bin/smoke/*|*/.uak/bin/smoke-project/*|*/.uak/bin/.smoke-project.provenance/*|*/.uak/bin/secret-scan/*|*/.uak/bin/uak/*|*/.uak/bin/lib/*|*/.uak/bin/uak-coordination/*|*/.githooks/*|*/hackathon.md/*|*/.uak/project.md/*)
         RM_REASON="Shared resource/CI needs a human: $path"; return 1;;
     esac
     normalize_paths "$path" > "$TXROOT/merge-path" || { RM_REASON='Invalid diff path'; return 1; }
@@ -474,7 +475,7 @@ rm_gate_scope() {
     # Why (MLB hackathon): an empty app/__init__.py and analysis/__init__.py sent two merges to the human.
     if [ "$allowed" = no ] && [ "$added" = yes ] && [ "$(git -C "$RM_BUILD" cat-file -s ":$path" 2>/dev/null)" = 0 ]; then allowed=yes; fi
     if [ "$allowed" = no ]; then
-      if printf '%s' "$path" | grep -Eq '(^|/)(__pycache__|node_modules|\.pytest_cache|\.next|dist|build)/|\.pyc$|(^|/)\.DS_Store$'; then
+      if printf '%s' "$path" | grep -Eq '(^|/)(__pycache__|node_modules|\.pytest_cache|\.next|dist|build|target|\.gradle)/|\.pyc$|\.class$|(^|/)\.DS_Store$'; then
         RM_REASON="Generated file committed: $path. Remove it from the branch (git rm -r --cached $path), add the pattern to .gitignore, push, and ask for review again"
       elif [ "$added" = yes ]; then
         RM_REASON="New file outside Paths: $path. Move it into the task's Paths, or a human adds its dir to Additive-Paths in PROJECT.md (new files there need no reservation)"
@@ -497,6 +498,40 @@ rm_gate_env() {
     if [ -d "$v/Scripts" ]; then RM_GATE_PATH="$v/Scripts:$PATH"; break; fi
     if [ -d "$v/bin" ]; then RM_GATE_PATH="$v/bin:$PATH"; break; fi
   done
+  [ -z "${RM_BUILD:-}" ] || rm_gate_node
+}
+# Node packages for the candidate: each package.json (up to 2 levels deep) gets the worktree's or the main
+# checkout's node_modules when its lockfile is identical (a link, or a junction on Windows); a changed lockfile
+# gets `npm ci`. Why (MLB hackathon): 3 merges went to the human queue with "vitest: command not found" though
+# Verify had passed in the worktree.
+rm_link_dir() { # $1 existing dir, $2 link path
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) command -v cygpath >/dev/null 2>&1 &&
+      cmd //c mklink /J "$(cygpath -w "$2")" "$(cygpath -w "$1")" >/dev/null 2>&1;;
+    *) ln -s "$1" "$2" 2>/dev/null;;
+  esac
+}
+rm_gate_node() {
+  local pj d lock src done_
+  git -C "$RM_BUILD" ls-files -- 'package.json' '*/package.json' '*/*/package.json' 2>/dev/null | grep -v node_modules > "$TXROOT/gate-node" || return 0
+  while IFS= read -r pj; do
+    d=$(dirname "$pj"); [ "$d" != . ] || d=
+    [ ! -e "$RM_BUILD/${d:+$d/}node_modules" ] || continue
+    lock=
+    for f in package-lock.json pnpm-lock.yaml yarn.lock bun.lockb npm-shrinkwrap.json; do [ -f "$RM_BUILD/${d:+$d/}$f" ] && { lock=$f; break; }; done
+    [ -n "$lock" ] || continue
+    done_=no
+    for src in "$ROOT/${d:+$d/}" "$RM_MAIN/${d:+$d/}"; do
+      [ -d "${src}node_modules" ] && cmp -s "${src}$lock" "$RM_BUILD/${d:+$d/}$lock" || continue
+      if rm_link_dir "${src}node_modules" "$RM_BUILD/${d:+$d/}node_modules"; then
+        printf '%s\n' "$RM_BUILD/${d:+$d/}node_modules" >> "$TXROOT/gate-links"; done_=yes; break
+      fi
+    done
+    if [ "$done_" = no ] && [ "$lock" = package-lock.json ] && command -v npm >/dev/null 2>&1; then
+      (cd "$RM_BUILD/${d:-.}" && npm ci --no-audit --no-fund --loglevel=error) >> "$TXROOT/gate-node.log" 2>&1 || true
+    fi
+  done < "$TXROOT/gate-node"
+  return 0
 }
 # Keeps a failed gate log (the temp dir is deleted) and returns ": last error line (log: PATH)".
 # Why (MLB, Codex): "merge smoke failed without exposing the diagnostic log".
