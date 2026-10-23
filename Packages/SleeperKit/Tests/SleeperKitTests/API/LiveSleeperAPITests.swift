@@ -58,6 +58,16 @@ struct LiveSleeperAPITests {
         #expect(recorder.requests.map(\.timeoutInterval) == [10, 30])
     }
 
+    @Test("La sesión por defecto no guarda cookies ni caché y limita la petición completa a 30 s")
+    func defaultSessionConfiguration() {
+        let configuration = LiveSleeperAPI.makeSession().configuration
+        #expect(configuration.httpCookieStorage == nil)
+        #expect(!configuration.httpShouldSetCookies)
+        #expect(configuration.urlCache == nil)
+        #expect(configuration.requestCachePolicy == .reloadIgnoringLocalCacheData)
+        #expect(configuration.timeoutIntervalForResource == 30)
+    }
+
     // MARK: - Estados HTTP
 
     @Test("404 → notFound")

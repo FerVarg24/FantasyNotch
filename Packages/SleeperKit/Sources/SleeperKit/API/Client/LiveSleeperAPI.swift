@@ -6,11 +6,14 @@ import os
 /// Garantías (plan.md §Threat model):
 /// - Host fijo `https://api.sleeper.app/v1`: los identificadores solo pueden ser un segmento de ruta
 ///   (`A–Z a–z 0–9 _ - .`), y se descarta cualquier respuesta cuyo host final sea otro.
-/// - Timeout de 10 s (30 s para `/players/nfl`) y límite de respuesta de 20 MB.
-/// - Las redirecciones no se siguen. El username y los IDs se registran con `privacy: .private`.
+/// - Timeout de inactividad de 10 s (30 s para `/players/nfl`) y tope de 30 s por petición completa.
+///   `timeoutInterval` mide el tiempo entre paquetes, no el total; el tope total es `timeoutIntervalForResource`.
+/// - Límite de respuesta de 20 MB, las redirecciones no se siguen, y el username y los IDs se registran con
+///   `privacy: .private`.
 ///
-/// Límite conocido: `URLSession.data(for:)` descarga el cuerpo completo antes de que se mida. El tamaño solo
-/// se corta de antemano si la respuesta declara `Content-Length`; una respuesta sin él se mide al terminar.
+/// Límite conocido: `URLSession.data(for:)` descarga el cuerpo completo antes de que se mida, con o sin
+/// `Content-Length`. El límite de 20 MB rechaza la respuesta, pero no evita que se descargue en memoria.
+/// Es aceptable porque el host está fijado a Sleeper; si dejara de serlo, habría que leer en streaming.
 public struct LiveSleeperAPI: SleeperAPI {
     static let host = "api.sleeper.app"
     static let baseURL = URL(string: "https://api.sleeper.app/v1")!
@@ -30,6 +33,8 @@ public struct LiveSleeperAPI: SleeperAPI {
     public static func makeSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        configuration.timeoutIntervalForResource = playersTimeout
         configuration.waitsForConnectivity = false
         configuration.httpShouldSetCookies = false
         configuration.httpCookieStorage = nil
@@ -119,6 +124,7 @@ public struct LiveSleeperAPI: SleeperAPI {
         default: throw SleeperAPIError.badStatus(http.statusCode)
         }
 
+        // Rechazo posterior a la descarga (ver el límite conocido arriba), no una protección de memoria.
         let declared = http.value(forHTTPHeaderField: "Content-Length").flatMap(Int.init)
         if let declared, declared > Self.maxResponseBytes { throw SleeperAPIError.responseTooLarge }
         if data.count > Self.maxResponseBytes { throw SleeperAPIError.responseTooLarge }
