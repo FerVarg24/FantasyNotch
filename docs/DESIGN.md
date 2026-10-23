@@ -12,7 +12,9 @@ Solo existe en pantallas con notch: sin notch `compact()` no muestra nada (spike
 - Un solo número por zona, sin etiquetas. Tamaño `caption` (≈ 12 pt) en semibold.
 - Si no hay rival (bye), la zona derecha muestra `—` y la izquierda mis puntos.
 
-## Vista expandida (al hacer clic o al pasar el cursor)
+## Vista expandida
+
+DynamicNotchKit **no** expande por clic ni por hover por sí sola (spike FN-004): la app debe llamar a `expand()` desde su propio gesto o evento.
 
 - Ancho propuesto: **360 pt**. Alto: lo que pida el contenido, con máximo **260 pt** (7–9 titulares por equipo caben en dos columnas).
 - Cabecera: nombre de cada equipo y su total, el del líder en peso `semibold`.

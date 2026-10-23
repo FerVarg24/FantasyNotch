@@ -4,7 +4,7 @@
     "display_name": "Manager 1",
     "is_bot": null,
     "is_owner": true,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on",
       "team_name": "Equipo 1"
@@ -16,7 +16,7 @@
     "display_name": "Manager 2",
     "is_bot": null,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "off"
     },
@@ -27,7 +27,7 @@
     "display_name": "Manager 3",
     "is_bot": null,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on",
       "team_name": "Equipo 3"
@@ -39,7 +39,7 @@
     "display_name": "Manager 4",
     "is_bot": null,
     "is_owner": true,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on",
       "team_name": "Equipo 4"
@@ -51,7 +51,7 @@
     "display_name": "Manager 5",
     "is_bot": null,
     "is_owner": true,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "off"
     },
@@ -62,7 +62,7 @@
     "display_name": "Manager 6",
     "is_bot": null,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "off"
     },
@@ -73,7 +73,7 @@
     "display_name": "Manager 7",
     "is_bot": null,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on",
       "team_name": "Equipo 7"
@@ -85,7 +85,7 @@
     "display_name": "Manager 8",
     "is_bot": null,
     "is_owner": true,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on",
       "team_name": "Equipo 8"
@@ -97,7 +97,7 @@
     "display_name": "Manager 9",
     "is_bot": null,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on"
     },
@@ -108,7 +108,7 @@
     "display_name": "Manager 10",
     "is_bot": false,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "off",
       "team_name": "Equipo 10"
@@ -120,7 +120,7 @@
     "display_name": "Manager 11",
     "is_bot": false,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on",
       "team_name": "Equipo 11"
@@ -132,7 +132,7 @@
     "display_name": "Manager 12",
     "is_bot": false,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "off",
       "team_name": "Equipo 12"
@@ -144,7 +144,7 @@
     "display_name": "Manager 13",
     "is_bot": false,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on",
       "team_name": "Equipo 13"
@@ -156,7 +156,7 @@
     "display_name": "Manager 14",
     "is_bot": false,
     "is_owner": false,
-    "league_id": "289646328504385536",
+    "league_id": "910000000000000001",
     "metadata": {
       "allow_pn": "on"
     },

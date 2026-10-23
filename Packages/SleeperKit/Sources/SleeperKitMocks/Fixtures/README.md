@@ -5,11 +5,12 @@ Los nombres de archivo deben ser únicos: `.process("Fixtures")` aplana los dire
 
 ## De dónde salen
 
-La liga es el ejemplo público de la documentación oficial de Sleeper (temporada 2018, ya terminada). Se grabó con `curl`/`urllib`
+La liga es la liga de ejemplo de la documentación de Sleeper (temporada 2018, ya terminada). Se grabó con `curl`/`urllib`
 el 2026-10-23 y se **anonimizó** antes de guardarse:
 
 - `display_name`, `username`, `team_name`, `avatar` y el nombre de las ligas se reemplazaron por valores genéricos.
 - Los `user_id` se remapearon de forma consistente (`9000000000000000NN`) para que `rosters` y `league_users` sigan cruzando.
+- Los `league_id` también (`91000000000000000N`) y `draft_id`/`previous_league_id` son `null`: con un ID real se podrían pedir los nombres reales a la API.
 - `user.json` contiene solo los campos del contrato (sin email, teléfono ni token).
 
 | Archivo | Origen |

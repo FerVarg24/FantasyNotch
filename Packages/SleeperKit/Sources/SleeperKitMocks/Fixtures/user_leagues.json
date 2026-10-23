@@ -1,8 +1,8 @@
 [
   {
     "avatar": null,
-    "draft_id": "337383791926468608",
-    "league_id": "337383787396628480",
+    "draft_id": null,
+    "league_id": "910000000000000002",
     "name": "Liga de ejemplo 1",
     "previous_league_id": null,
     "roster_positions": [
@@ -87,10 +87,10 @@
   },
   {
     "avatar": null,
-    "draft_id": "289646328508579840",
-    "league_id": "289646328504385536",
+    "draft_id": null,
+    "league_id": "910000000000000001",
     "name": "Liga de ejemplo 2",
-    "previous_league_id": "198946952535085056",
+    "previous_league_id": null,
     "roster_positions": [
       "QB",
       "RB",
@@ -199,8 +199,8 @@
   },
   {
     "avatar": null,
-    "draft_id": "339522618090594304",
-    "league_id": "339522552634306560",
+    "draft_id": null,
+    "league_id": "910000000000000003",
     "name": "Liga de ejemplo 3",
     "previous_league_id": null,
     "roster_positions": [
@@ -269,10 +269,10 @@
   },
   {
     "avatar": null,
-    "draft_id": "342072229976248320",
-    "league_id": "336234094876721152",
+    "draft_id": null,
+    "league_id": "910000000000000004",
     "name": "Liga de ejemplo 4",
-    "previous_league_id": "0",
+    "previous_league_id": null,
     "roster_positions": [
       "QB",
       "RB",
@@ -361,8 +361,8 @@
   },
   {
     "avatar": null,
-    "draft_id": "332276474746777600",
-    "league_id": "332276470334361600",
+    "draft_id": null,
+    "league_id": "910000000000000005",
     "name": "Liga de ejemplo 5",
     "previous_league_id": null,
     "roster_positions": [
