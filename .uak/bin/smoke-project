@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# UAK_PRODUCT_ADAPTER: generated-v2.1
+set -u
+set -o pipefail
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+cd "$root" || exit 2
+exec bash -c bash\ scripts/verify.sh
