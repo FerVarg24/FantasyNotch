@@ -1,11 +1,11 @@
 # fervarg24-1
 Agent: fervarg24-1
 Started: 1792781872
-Events: 2
-Events-Since-Checkpoint: 2
-Checkpoints: 0
+Events: 3
+Events-Since-Checkpoint: 0
+Checkpoints: 1
 Sessions: 1
-Last-Checkpoint: 0
+Last-Checkpoint: 1792783174
 Human: FerVarg24
 Last-Session: fervarg24-1-1792781872
-Updated: 1792783166
+Updated: 1792783174
