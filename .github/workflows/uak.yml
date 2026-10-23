@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   gates:
-    runs-on: ubuntu-latest
+    # macOS: the product smoke (scripts/verify.sh) needs xcodegen and xcodebuild.
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - name: Secrets in tracked files
@@ -28,6 +29,8 @@ jobs:
           python3 -c 'import ast, sys; ast.parse(open(sys.argv[1], encoding="utf-8").read())' .uak/bin/uak-mcp
       - name: Backlog graph (no cycles, no unknown deps)
         run: if [ -f .uak/TASKS.md ]; then bash .uak/bin/graph --file .uak/TASKS.md; fi
+      - name: Install XcodeGen
+        run: brew install xcodegen
       - name: Product smoke
         run: |
           if [ -f .uak/bin/smoke-project ]; then bash .uak/bin/smoke-project
