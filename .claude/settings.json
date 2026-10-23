@@ -72,7 +72,6 @@
       "Bash(npm install:*)",
       "Bash(npm --prefix web install:*)",
       "Bash(pip install:*)",
-      "Bash(curl:*)",
       "Bash(wget:*)",
       "WebFetch",
       "Bash(docker:*)",
