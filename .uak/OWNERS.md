@@ -7,6 +7,7 @@ An owner is not a prerequisite for everyone: consumers work on published contrac
 |---|---|
 | project.yml | FN-001 |
 | Packages/SleeperKit/Package.swift | FN-001 |
+| Packages/SleeperKit/Sources/SleeperKitMocks/SleeperKitMocks.swift | FN-001 |
 | App/FantasyNotchApp.swift | FN-001 |
 | App/Info.plist | FN-001 |
 | App/FantasyNotch.entitlements | FN-001 |
