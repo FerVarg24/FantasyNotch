@@ -8,3 +8,4 @@ Why: a reversible option after 15 min keeps work moving.
 - 1792785411 | FN-001 | Merge manual del humano tras approve | Why: modo marathon
 - 1792791437 | FN-012 | dry-run compila, empaqueta y valida el zip en tmp sin dejar dist/ | Why: mismo flujo local y CI sin publicar
 - 1792791720 | FN-002 | PlayStatus como plan.md (pending/playing/done/unknown); fixtures en SleeperKitMocks/Fixtures; sin cliente HTTP | Why: criterio exacto de plan.md; Package.swift define resources en SleeperKitMocks
+- 1792791967 | FN-002 | Merge manual del humano tras approve; PlayStatus segun plan.md | Why: modo marathon; criterio de la tarea
