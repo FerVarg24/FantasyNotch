@@ -10,3 +10,4 @@ Why: a reversible option after 15 min keeps work moving.
 - 1792791720 | FN-002 | PlayStatus como plan.md (pending/playing/done/unknown); fixtures en SleeperKitMocks/Fixtures; sin cliente HTTP | Why: criterio exacto de plan.md; Package.swift define resources en SleeperKitMocks
 - 1792791967 | FN-002 | Merge manual del humano tras approve; PlayStatus segun plan.md | Why: modo marathon; criterio de la tarea
 - 1792792993 | FN-005 | descarga completa antes de medir 20MB (limite documentado); user null->notFound (verificado contra API real); redirecciones cortadas | Why: URLSession.data(for:) sin streaming; Sleeper responde 200 null para usuario inexistente
+- 1792793016 | FN-006 | Devuelve [String: Player] reconstruido con los 4 campos guardados; archivo corrupto = sin caché; error de escritura se ignora | Why: Mismo tipo que SleeperAPI.players() para que FN-007/008 no distingan origen; la caché nunca debe tumbar la app
