@@ -16,8 +16,12 @@ hack_env_file="$(git rev-parse --show-toplevel 2>/dev/null)/.uak-env"
 if [ -f "$hack_env_file" ]; then
   while IFS='=' read -r hack_key hack_value || [ -n "$hack_key" ]; do
     case "$hack_key" in
-      UAK_AGENT|UAK_HUMAN|UAK_SESSION|UAK_TASK)
+      UAK_AGENT|UAK_HUMAN|UAK_AGENT_HUMAN|UAK_SESSION|UAK_TASK)
         case "$hack_value" in ''|*[!A-Za-z0-9_.-]*) continue;; esac
+        # The worktree names its agent's human, but that grants no human authority (allow, plan, handover of
+        # others' tasks, retire, register-reviewer): only an explicit UAK_HUMAN in the shell does. Why: every agent
+        # in a task worktree inherited UAK_HUMAN from .uak-env and could pass the human-only gates.
+        case "$hack_key" in UAK_HUMAN|UAK_AGENT_HUMAN) [ -n "${UAK_AGENT_HUMAN:-}" ] || export "UAK_AGENT_HUMAN=$hack_value"; continue;; esac
         hack_current=$(eval "printf '%s' \"\${$hack_key:-}\"")
         # Identity and task of a worktree win over an inherited shell export (UpiixSol: a lead's exported
         # UAK_AGENT made a subagent's claim land under the lead's name). UAK_ENV_OVERRIDE=1 keeps the export.
@@ -37,6 +41,15 @@ HUMAN=${UAK_HUMAN:-}
 ROOT= TX= TXROOT= NOW=
 CMD=${1:-help}
 [ "$#" -eq 0 ] || shift
+# The names agents guessed for existing commands. Why (MLB hackathon): tasks, task, show, backlog and
+# status --verbose/--available were errors, each followed by a retry.
+case "$CMD" in
+  tasks|backlog) CMD=status;;
+  task|show) CMD=status; [ "$#" -eq 0 ] || case "$1" in -*) ;; *) set -- --task "$@";; esac;;
+esac
+if [ "$CMD" = status ] || [ "$CMD" = next ]; then
+  for a in "$@"; do shift; case "$a" in --verbose|-v) set -- "$@" --full;; --available|--all) ;; *) set -- "$@" "$a";; esac; done
+fi
 say() { printf '%s\n' "$*"; }
 UAK_BIN=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 # Black box (.uak/docs/BLACKBOX.md): every error is also recorded locally; flushed later in one push.
@@ -88,7 +101,18 @@ identity() {
 cleanup() {
   # Why: only the temp dir created by this invocation is removed.
   if [ -n "$TXROOT" ] && [ -n "${TMP_BASE:-}" ]; then
-    case "$TXROOT" in "$TMP_BASE"/hack.??????) rm -rf "$TXROOT";; esac
+    case "$TXROOT" in "$TMP_BASE"/hack.??????)
+      # Links into real node_modules go first, so the recursive delete can never follow one into its target.
+      if [ -f "$TXROOT/gate-links" ]; then
+        while IFS= read -r l; do
+          case "$(uname -s 2>/dev/null)" in
+            MINGW*|MSYS*|CYGWIN*) cmd //c rmdir "$(cygpath -w "$l")" >/dev/null 2>&1 || rm -f "$l";;
+            *) rm -f "$l";;
+          esac
+        done < "$TXROOT/gate-links"
+      fi
+      rm -rf "$TXROOT";;
+    esac
   fi
 }
 trap cleanup EXIT
@@ -110,6 +134,8 @@ next
 review ID --start | --stop | --sha SHA --verdict approve|reject [--note "file:line · what · how to reproduce"] [--learn]
 followup ID --title TEXT   new task on ID's Paths after ID is INTEGRATED (fixes and polish; no human needed)
 handover ID --to NAME   pass your claim (or an expired one, or as UAK_HUMAN) to another agent without AVAILABLE
+pr-sync [ID]   failed checks and new human review comments on a task's GitHub PR → one message to the task (gh)
+away   this identity closed its session (SessionEnd hooks run it): no reviews for it until its next command
 retire NAME...   an identity that no longer runs leaves the reviewer rotation (its human or itself)
 register-reviewer NAME...  (UAK_HUMAN, from the main checkout)
 merge ID
@@ -121,6 +147,7 @@ doctor [--fix]   preflight: remote, gh permissions, hooks, freeze, ports
 graph [--mermaid] [--min-wave1 N] | graph --assign   backlog DAG: waves, critical path, cycles; --assign suggests an idle agent per ready task
 loop --verify CMD [--agent CMD] [--max N] [--task ID]   bounded verify → fix loop
 board [--md] [--watch S]   team kanban from the claims branch
+dash [--watch [S]] [--open]   the whole team on one local page: progress %, agents, conversation, reviews, black box
 stats   retro numbers: messages, reviews, recoveries, queue
 up N [--tool CMD] [--tmux]   claim the N best tasks into worktrees and launch agents
 demo [--keep]   30-second real 3-agent run in a temp repo
@@ -131,12 +158,12 @@ pace [--caps|--json|set USED --resets +3h [--window 5h]]   plan-usage pacing: su
 tokens [--team] [--by task|harness|model|scope|agent] [--since DAYS] [--publish]   real token spend from Claude Code/Codex transcripts
 map [show|find|callers|calls|deps|users|path|related|impact|notes]   code graph: symbols, imports, calls (+ optional semantic notes)
 bb add bug|friction|idea|need|praise TEXT [--fix IDEA] · bb flush · bb show · bb export   black box for kit fixes
-plan FILE   publish new tasks to claims without a PR (Plan-Channel: claims; needs UAK_HUMAN)
+plan FILE [--amend]   publish new tasks to claims without a PR, or amend published ones before review (Plan-Channel: claims; UAK_HUMAN)
 msg DESTINO TEXTO [--kind TIPO] [--task HACK-NNN]   DESTINO: NOMBRE|HACK-NNN|related:HACK-NNN|all|human
 inbox [--ack] [--all] [--peek] [--task HACK-NNN] [--human]
 wait [ID] --for approve|integrated|message [--timeout S]   one call that returns when it happens (instead of polling)
 learn "TEXT" [--path P,Q] [--task ID] · learn --forget N   a lesson tied to paths; next shows it to the next agent there
-recall [ID|PATH]   the lessons for a task or a path, newest first
+recall [ID|PATH] [--similar | --search "words"]   lessons for a task or a path; --similar/--search: lessons, rejects, contracts and decisions ranked by words (BM25)
 UAK_AGENT / UAK_HUMAN · UAK_REMOTE=origin · UAK_BASE=main · lease=1800s
 Why: the remote serializes claims; every session keeps an exact next step.
 USAGE
@@ -149,10 +176,10 @@ case "$CMD" in version|--version) cat "$UAK_BIN/../VERSION" 2>/dev/null || say u
 # Call counts give the black box a denominator (error rate per command). Local file, flushed by bb.
 bb_common=$(git rev-parse --git-common-dir 2>/dev/null) || bb_common=
 case "${UAK_BLACKBOX:-}" in off|0|no|false) ;; *)
-  [ -z "$bb_common" ] || printf '%s\n' "$CMD" >> "$bb_common/uak-blackbox.calls" 2>/dev/null;;
+  [ -z "$bb_common" ] || printf '%s\n' "${UAK_CALLER:+$UAK_CALLER-}$CMD" >> "$bb_common/uak-blackbox.calls" 2>/dev/null;;
 esac
-case "$CMD" in doctor|graph|loop|board|stats|up|demo|bb|pace|clock|tokens|map) exec bash "$UAK_BIN/$CMD" "$@";; esac
-case "$CMD" in status|claim|heartbeat|release|log|checkpoint|handoff|done|integrate|digest|lint|tick|next|review|register-reviewer|merge|decision|secret-exception|init-smoke|msg|inbox|plan|allow|retire|followup|handover|wait|learn|recall) ;; *) die "Unknown command: $CMD (uak help lists them)";; esac
+case "$CMD" in doctor|graph|loop|board|stats|up|demo|bb|pace|clock|tokens|map|dash) exec bash "$UAK_BIN/$CMD" "$@";; esac
+case "$CMD" in status|claim|heartbeat|away|pr-sync|release|log|checkpoint|handoff|done|integrate|digest|lint|tick|next|review|register-reviewer|merge|decision|secret-exception|init-smoke|msg|inbox|plan|allow|retire|followup|handover|wait|learn|recall) ;; *) die "Unknown command: $CMD (uak help lists them)";; esac
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || {
   case "$CMD" in lint|init-smoke) ;; *) gitfail "Run inside a Git repository with a remote.";; esac
   ROOT=$(pwd -P)
@@ -166,6 +193,7 @@ source "$ROOT/.uak/bin/lib/security.sh"
 source "$ROOT/.uak/bin/lib/smoke-init.sh"
 source "$ROOT/.uak/bin/lib/messages.sh"
 source "$ROOT/.uak/bin/lib/memory.sh"
+source "$ROOT/.uak/bin/lib/github.sh"
 # Reads one section; accepts - **Field:** value, **Field**: value and Field: value.
 task_field() {
   awk -v id="$ID" -v key="$1" '
@@ -235,23 +263,33 @@ owner_rows() {
       if(q ~ /^[A-Z][A-Z0-9]*-[0-9][0-9][0-9]+$/) print p "|" q
     }}' "$OWNERS"
 }
+# The task itself, or a task it follows up (the "Follow-up of" chain): a follow-up works on its parent's owned paths.
+# Why (MLB hackathon): 4 black box notes; every `uak followup` of a task that owned paths in OWNERS.md was refused.
+owner_is_self() {
+  local id=$ID i=0
+  while [ -n "$id" ] && [ "$i" -lt 6 ]; do
+    [ "$1" != "$id" ] || return 0
+    id=$(ID=$id task_field "Follow-up of" | grep -Eo '^[A-Z][A-Z0-9]*-[0-9]+' | head -n 1); i=$((i + 1))
+  done
+  return 1
+}
 check_owners() {
   owner_rows > "$TXROOT/owners"
   while IFS='|' read -r pat owner; do
     [ -n "$pat" ] || continue
     normalize_paths "$pat" > "$TXROOT/owner-paths" || die "Invalid OWNERS pattern: $pat"
-    if overlaps "$TXROOT/paths-request" "$TXROOT/owner-paths" && [ "$owner" != "$ID" ]; then
+    if overlaps "$TXROOT/paths-request" "$TXROOT/owner-paths" && ! owner_is_self "$owner"; then
       conflict "$pat belongs to $owner; split the work or request its contract."
     fi
   done < "$TXROOT/owners"
   while IFS= read -r path; do
     case "/$path/" in
-      */package-lock.json/*|*/npm-shrinkwrap.json/*|*/pnpm-lock.yaml/*|*/*.lock/*|*/*.lockb/*|*/go.sum/*|*/lockfiles/*|*/migrations/*|*/contracts/*|*/types/*|*/shared-types/*|*/.github/workflows/*|*/.gitlab-ci.yml/*|*/azure-pipelines.yml/*)
+      */package-lock.json/*|*/npm-shrinkwrap.json/*|*/pnpm-lock.yaml/*|*/*.lock/*|*/*.lockb/*|*/go.sum/*|*/gradle.lockfile/*|*/lockfiles/*|*/migrations/*|*/db/migration/*|*/contracts/*|*/types/*|*/shared-types/*|*/.github/workflows/*|*/.gitlab-ci.yml/*|*/azure-pipelines.yml/*)
         assigned=no
         printf '%s\n' "$path" > "$TXROOT/one-path"
         while IFS='|' read -r pat owner; do
           normalize_paths "$pat" > "$TXROOT/owner-paths" || die "Invalid OWNERS."
-          if overlaps "$TXROOT/one-path" "$TXROOT/owner-paths" && [ "$owner" = "$ID" ]; then assigned=yes; fi
+          if overlaps "$TXROOT/one-path" "$TXROOT/owner-paths" && owner_is_self "$owner"; then assigned=yes; fi
         done < "$TXROOT/owners"
         [ "$assigned" = yes ] || conflict "Shared resource without an owner in OWNERS.md: $path"
         ;;
@@ -282,6 +320,16 @@ fresh_state() {
   init_try=0
   until git -C "$TX" init -q 2> "$TXROOT/init-error"; do
     init_try=$((init_try + 1))
+    # A sandbox that forbids git in the system temp dir (Codex on macOS: "Operation not permitted" in /var/folders)
+    # gets a temp dir inside the repo's own .git. Why (MLB hackathon): 12 tick/next/status/inbox calls failed this way.
+    if [ "$init_try" -ge 2 ] && [ -z "${UAK_TMP_FALLBACK:-}" ] && grep -qi 'not permitted\|permission denied\|read-only' "$TXROOT/init-error"; then
+      UAK_TMP_FALLBACK="$(git -C "$ROOT" rev-parse --absolute-git-dir 2>/dev/null)/uak-tmp"
+      if mkdir -p "$UAK_TMP_FALLBACK" 2>/dev/null && fb_root=$(mktemp -d "$UAK_TMP_FALLBACK/hack.XXXXXX" 2>/dev/null); then
+        case "$TXROOT" in "$TMP_BASE"/hack.??????) rm -rf "$TXROOT";; esac
+        TMP_BASE=$(cd "$UAK_TMP_FALLBACK" && pwd -P); TXROOT=$(cd "$fb_root" && pwd -P); TX="$TXROOT/try-$ATTEMPT"
+        mkdir "$TX" || gitfail "Cannot create transaction."; init_try=0; continue
+      fi
+    fi
     [ "$init_try" -lt 3 ] || gitfail "git init failed in $TX: $(head -n 1 "$TXROOT/init-error"). Check TMPDIR (now ${TMPDIR:-/tmp}) is writable, or set TMPDIR to another folder."
     sleep "$init_try"; rm -rf "$TX"; mkdir "$TX" || gitfail "Cannot create transaction."
   done
@@ -391,7 +439,7 @@ check_collisions() {
         other_until=$(field "$other" Lease-Until)
         case "$other_until" in ''|*[!0-9]*) other_until=0;; esac
         [ "$NOW" -ge "$other_until" ] ||
-          conflict "$AGENT already holds $(field "$other" ID) ($(field "$other" State)). One identity = one live task: finish or release it, or start another agent with its own name (wt new $ID --agent $AGENT-b).";;
+          conflict "$AGENT already holds $(field "$other" ID) ($(field "$other" State)). One identity = one live task: finish or release it, or let another agent take it: bash .uak/bin/wt new $ID (picks a free identity of this machine).";;
       esac
     fi
     if [ "$(field "$other" Branch)" = "$BRANCH" ] || [ "$(field "$other" Worktree)" = "$WORKTREE" ]; then
@@ -506,6 +554,49 @@ wait_run() {
     sleep "$WAIT_EVERY"
   done
 }
+# Progress facts from the task's worktree, written by every heartbeat (the hooks send them): commits since the claim,
+# the last one, uncommitted files. The next owner sees them even when nobody checkpointed. Why (MLB hackathon): 74
+# checkpoints for 130 claims, 43 lease recoveries, and a summary that said what the task was, not where it stood.
+task_progress() {
+  local wt base n last dirty
+  wt=$(field "$RECORD" Worktree); [ -d "$wt" ] || wt=$ROOT
+  [ "$(git -C "$wt" symbolic-ref --short HEAD 2>/dev/null)" = "$(field "$RECORD" Branch)" ] || return 0
+  base=$(field "$RECORD" Task-Base)
+  n=$(git -C "$wt" rev-list --count "${base:-HEAD}..HEAD" 2>/dev/null || echo 0)
+  last=$(git -C "$wt" log -1 --format='%h %s (%cr)' 2>/dev/null | cut -c 1-120 | tr '|' '/')
+  dirty=$(git -C "$wt" status --porcelain 2>/dev/null | grep -vc '^??' || true)
+  put "$RECORD" Progress "$n commit(s) since the claim · last: ${last:--} · $dirty uncommitted tracked file(s) · at $NOW"
+  # When the work last moved (a new HEAD, or a different set of uncommitted files): stall detection reads it.
+  local head; head="$(git -C "$wt" rev-parse --short HEAD 2>/dev/null)/$(git -C "$wt" status --porcelain 2>/dev/null | cksum | awk '{print $1}')"
+  if [ "$(field "$RECORD" Progress-Head)" != "$head" ]; then put "$RECORD" Progress-Head "$head"; put "$RECORD" Progress-Changed "$NOW"; fi
+}
+# Stalled: a CLAIMED task whose work has not moved for Stall-Seconds (default 90 min) while its lease is live.
+# Prints "minutes" or nothing. Why (MLB hackathon): 43 lease recoveries; Addy Osmani's orchestra notes: kill and
+# reassign an agent stuck three iterations on one error instead of letting it spin.
+task_stalled() { # $1 record file
+  local ch lim; [ "$(field "$1" State)" = CLAIMED ] || return 0
+  ch=$(field "$1" Progress-Changed); case "$ch" in ''|*[!0-9]*) return 0;; esac
+  lim=$(coord_config Stall-Seconds 5400 2>/dev/null); case "$lim" in ''|*[!0-9]*) lim=5400;; esac
+  [ $((NOW - ch)) -ge "$lim" ] || return 0
+  printf '%s' $(( (NOW - ch) / 60 ))
+}
+# `uak away`: this identity closed its session. It leaves the reviewer rotation and messages to it reach its tasks
+# at once (not after 30 min of silence); its claims keep their leases. The next uak command brings it back.
+# SessionEnd hooks run it. Why (MLB hackathon): sessions closed without a handoff (5 handoffs, 14 releases for 130
+# claims), and their identities kept getting reviews for hours.
+away_mutate() {
+  local c n=0
+  mkdir -p "$TX/meta/agents"
+  [ -f "$TX/meta/agents/$AGENT.md" ] || printf '%s\n' "# $AGENT" "Agent: $AGENT" "Started: $NOW" > "$TX/meta/agents/$AGENT.md"
+  for c in "$TX"/claims/*.md; do
+    [ -f "$c" ] && [ "$(field "$c" Owner)" = "$AGENT" ] || continue
+    ID=$(field "$c" ID); RECORD=$(task_file)
+    case "$(field "$c" State)" in CLAIMED|BLOCKED) task_progress; put "$RECORD" Away "$NOW"; n=$((n + 1));; esac
+  done
+  ID=
+  put "$TX/meta/agents/$AGENT.md" Session-Ended "$NOW"
+  AWAY_TASKS=$n
+}
 # Explicit transfer of a live task: same claim, branch, worktree and summary; only the owner changes.
 # Allowed to the owner, to a human (UAK_HUMAN) and to anyone once the lease has expired.
 # Why (MLB hackathon): the tasks of three abandoned identities were redistributed by messages ("you take 033, I
@@ -515,8 +606,12 @@ handover_mutate() {
   [ -f "$CLAIM" ] && [ -f "$RECORD" ] || conflict "$ID has no claim to hand over."
   owner=$(field "$CLAIM" Owner); until=$(field "$CLAIM" Lease-Until); case "$until" in ''|*[!0-9]*) until=0;; esac
   [ "$DONE_TO" != "$owner" ] || conflict "$ID already belongs to $DONE_TO."
+  # Also another identity of the same human once the owner has been offline for 1 h (or closed its session, uak away): a human's closed session must
+  # not strand its task in review (MLB: verdicts and requests reached closed identities while the same human ran a live one).
+  local seen_o; seen_o=$(msg_seen "$owner")
   [ "$owner" = "$AGENT" ] || [ -n "$HUMAN" ] || [ "$NOW" -ge "$until" ] ||
-    conflict "$ID belongs to $owner with a live lease: only $owner or a human (UAK_HUMAN) can hand it over."
+    { [ "${owner%-*}" = "${AGENT%-*}" ] && { [ $((NOW - seen_o)) -ge 3600 ] || msg_away "$owner"; }; } ||
+    conflict "$ID belongs to $owner with a live lease: only $owner, a human (UAK_HUMAN) or another identity of the same human after 1 h offline can hand it over."
   [ ! -f "$TX/meta/retired/$DONE_TO.md" ] || conflict "$DONE_TO is retired; a claim by $DONE_TO brings it back, a handover does not."
   if [ "${UAK_MULTI_CLAIM:-}" != 1 ]; then
     for c in "$TX"/claims/*.md; do
@@ -594,6 +689,8 @@ mutate() {
       if [ -f "$TX/$WL" ]; then update_summary_field Next "$NEXT_TEXT"; else set_summary; fi
       event "claim; next: $NEXT_TEXT"
       ;;
+    away) away_mutate;;
+    pr-sync) pr_sync_mutate;;
     heartbeat)
       coord_tick_mutate
       # Your own task that already left CLAIMED/REVIEW: nothing to renew, not an error.
@@ -603,6 +700,7 @@ mutate() {
       fi
       require_owner; STATE=$(field "$RECORD" State)
       refresh_lease; event "heartbeat; lease until $UNTIL"
+      task_progress
       ;;
     release)
       [ -f "$CLAIM" ] && [ -f "$RECORD" ] || conflict "$ID has no claim."
@@ -747,11 +845,19 @@ mutate() {
       if [ "$STATE" = REVIEW ] && [ -d "$task_worktree" ] && [ -f "$task_worktree/.uak/bin/map" ]; then
         local cfiles ctasks
         cfiles=$(git -C "$task_worktree" diff --name-only "$(field "$RECORD" Task-Base)" "$tip" 2>/dev/null | head -n 30)
-        ctasks=$( [ -z "$cfiles" ] || (cd "$task_worktree" && bash .uak/bin/map impact --tasks $cfiles 2>/dev/null) | grep -v "^$ID\$" |
+        ctasks=$( [ -z "$cfiles" ] || (cd "$task_worktree" && bash .uak/bin/map impact --tasks --backlog "$BACKLOG" $cfiles 2>/dev/null) | grep -v "^$ID\$" |
           while IFS= read -r t; do [ -f "$TX/claims/$t.md" ] && printf '%s ' "$t"; done)
         if [ -n "$ctasks" ] && ! awk -F' [|] ' -v me="$AGENT" -v id="$ID" '$3 == me && $5 == "contract" && ($6 == id || index($4, "impact:" id)) {f = 1} END {exit !f}' "$TX/$MSG_LOG" 2>/dev/null; then
           DONE_HINT="CONTRACT? Your diff changes files that live tasks import (${ctasks% }) and you sent them no contract. If the shape changed: bash .uak/bin/uak msg impact:$ID --kind contract --task $ID \"what changed · what to do\""
         fi
+      fi
+      # Upstream drift at the moment of shipping: the base changed what this branch edits or imports since it last
+      # synced (the merge gate would find it later, after a review). Why: STORM, arXiv 2605.20563.
+      if [ "$STATE" = REVIEW ] && [ -d "$task_worktree" ] && [ -f "$task_worktree/.uak/bin/map" ]; then
+        local drift
+        drift=$(cd "$task_worktree" && git fetch -q origin "$BASE" 2>/dev/null && bash .uak/bin/map drift --ref "origin/$BASE" 2>/dev/null | head -n 4)
+        [ -z "$drift" ] || DONE_HINT="${DONE_HINT}${DONE_HINT:+
+}$drift"
       fi
       if [ "$STATE" = INTEGRATED ]; then
         put "$RECORD" Next "Integrated in $BASE: $merged; claim next P0"
@@ -784,15 +890,66 @@ mutate() {
   # An idempotent read changes no STATE and creates no empty commit.
   if [ -n "$(git -C "$TX" status --porcelain)" ]; then snapshot; fi
 }
+# `plan FILE --amend`: new Paths, Verify or criteria for tasks already published, before their review.
+# The amended section replaces the old one wherever the backlog is read (claims backlog/AMEND.md, last one wins);
+# a claimed task's record and claim take the new Paths and Verify, so the merge gate checks the new scope.
+# Why (MLB hackathon, v5 week): a fix had to touch fixtures and tests the plan missed, `uak plan` refused to
+# republish the task, and the only way out was a new task or edits outside Paths.
+plan_amend_mutate() {
+  local id st c old_p new_p old_v new_v changes=
+  for id in $plan_ids; do
+    valid_id "$id" || die "Invalid ID in plan: $id"
+    [ "$(awk -v id="$id" '/^## / && $2==id {n++} END {print n+0}' "$BACKLOG")" -eq 1 ] || conflict "$id is not in the backlog: publish it with uak plan FILE (no --amend)."
+    [ "$(awk -v id="$id" '/^## / && $2==id {n++} END {print n+0}' "$PLAN_FILE")" -eq 1 ] || die "$id appears more than once in $PLAN_FILE."
+    for key in Priority "Paths" "Depends on" "Verify"; do
+      [ -n "$(ID=$id BACKLOG=$PLAN_FILE task_field "$key")" ] || die "$id needs $key."
+    done
+    st=$(field "$TX/tasks/$id.md" State); st=${st:-AVAILABLE}
+    case "$st" in
+      AVAILABLE|CLAIMED|BLOCKED) ;;
+      REVIEW) conflict "$id is in REVIEW: its review covers the old criteria. A reviewer rejects it first (or it merges), then amend; more work after INTEGRATED is uak followup $id.";;
+      *) conflict "$id is $st: more work on it is uak followup $id --title TEXT.";;
+    esac
+    new_p=$(ID=$id BACKLOG=$PLAN_FILE task_field Paths); new_v=$(ID=$id BACKLOG=$PLAN_FILE task_field Verify)
+    old_p=$(ID=$id task_field Paths); old_v=$(ID=$id task_field Verify)
+    # New Paths must not take files of other live claims or of OWNERS rows (same checks as a claim).
+    ( ID=$id; normalize_paths "$new_p" > "$TXROOT/paths-request" || die "Invalid Paths for $id."
+      check_owners
+      for c in "$TX"/claims/*.md; do
+        [ -f "$c" ] && [ "$(field "$c" ID)" != "$id" ] || continue
+        normalize_paths "$(field "$c" Paths)" > "$TXROOT/other-paths" || continue
+        ! overlaps "$TXROOT/paths-request" "$TXROOT/other-paths" || conflict "The new Paths of $id overlap $(field "$c" ID) (claimed by $(field "$c" Owner)): split the work or ask them."
+      done ) || exit $?
+    if [ -f "$TX/tasks/$id.md" ] && [ "$st" != AVAILABLE ]; then
+      put "$TX/tasks/$id.md" Paths "$(one_line "$new_p")"; put "$TX/tasks/$id.md" Verify "$(one_line "$new_v")"
+      [ ! -f "$TX/claims/$id.md" ] || { put "$TX/claims/$id.md" Paths "$(one_line "$new_p")"; put "$TX/claims/$id.md" Verify "$(one_line "$new_v")"; }
+    fi
+    changes="$changes $id"
+    [ "$old_p" = "$new_p" ] || changes="$changes Paths: $old_p → $new_p;"
+    [ "$old_v" = "$new_v" ] || changes="$changes Verify changed;"
+    msg_append "task:$id" info "$id" "$id amended by $HUMAN: Paths $(one_line "$new_p") · Verify $(one_line "$new_v"). uak status --task $id; the merge gate checks the new Paths."
+  done
+  [ -f "$TX/backlog/AMEND.md" ] || printf '%s\n' '# Amended tasks (uak plan --amend)' '' \
+    'Append-only; the last section of an ID replaces its section in the backlog. Why: Paths can grow before review.' '' > "$TX/backlog/AMEND.md"
+  awk '/^## [A-Z][A-Z0-9]*-[0-9]/ {on=1} /^# / {on=0} on {print}' "$PLAN_FILE" >> "$TX/backlog/AMEND.md"
+  if grep -Eq '^\|.*\|[[:space:]]*[A-Z][A-Z0-9]*-[0-9]+[[:space:]]*\|' "$PLAN_FILE"; then
+    [ -f "$TX/backlog/OWNERS.md" ] || printf '%s\n' '# Owners published on claims' '' '| Pattern | Owner task |' '|---|---|' > "$TX/backlog/OWNERS.md"
+    grep -E '^\|.*\|[[:space:]]*[A-Z][A-Z0-9]*-[0-9]+[[:space:]]*\|' "$PLAN_FILE" >> "$TX/backlog/OWNERS.md"
+  fi
+  ID=
+  [ -f "$TX/DECISIONS.md" ] || printf "# DECISIONS\n\nCoordination decisions on the claims branch.\n" > "$TX/DECISIONS.md"
+  printf '%s\n' "- $NOW | plan --amend | $HUMAN/$AGENT | amended:$(one_line "$changes" | tr '|' '/') | Why: scope or criteria fixed before review" >> "$TX/DECISIONS.md"
+}
 plan_mutate() {
   [ "$(coord_source_field Plan-Channel main)" = claims ] ||
     conflict "Plan-Channel is not claims in .uak/PROJECT.md: publish the backlog by PR to $BASE."
   plan_ids=$(awk '/^## [A-Z][A-Z0-9]*-[0-9]/ {print $2}' "$PLAN_FILE")
   [ -n "$plan_ids" ] || die "The file has no ## ID sections."
+  if [ "$PLAN_AMEND" = yes ]; then plan_amend_mutate; return; fi
   for ID in $plan_ids; do
     valid_id "$ID" || die "Invalid ID in plan: $ID"
     [ "$(awk -v id="$ID" '/^## / && $2==id {n++} END {print n+0}' "$BACKLOG" "$PLAN_FILE")" -eq 1 ] ||
-      conflict "$ID already exists in the backlog or is duplicated."
+      conflict "$ID already exists in the backlog or is duplicated. To change its Paths, Verify or criteria before review: uak plan FILE --amend."
     for key in Priority "Paths" "Depends on" "Verify"; do
       [ -n "$(BACKLOG=$PLAN_FILE task_field "$key")" ] || die "$ID needs $key."
     done
@@ -825,11 +982,13 @@ transaction() {
       if [ "${QUIET:-no}" != yes ]; then
         if [ "$SESSION_ONLY" = yes ]; then say "OK checkpoint --session | budget reset | attempt $ATTEMPT"
         elif [ "$CMD" = tick ]; then say "OK tick | deadlines reconciled | attempt $ATTEMPT"
+        elif [ "$CMD" = plan ] && [ "$PLAN_AMEND" = yes ]; then say "OK plan --amend$(printf ' %s' $plan_ids) | new Paths/Verify/criteria on claims; their owners got one message | attempt $ATTEMPT"
         elif [ "$CMD" = plan ]; then say "OK plan | tasks published on claims | attempt $ATTEMPT"
         elif [ "$CMD" = allow ]; then say "OK allow${ALLOW_DONE:- (already allowed)} | claim and merge allowed after the freeze | attempt $ATTEMPT"
         elif [ "$CMD" = register-reviewer ]; then say "OK register-reviewer $REGISTER_REVIEWER | attempt $ATTEMPT"
         elif [ "$CMD" = handover ]; then say "OK handover $ID → $DONE_TO | lease renewed; $DONE_TO continues from the live summary"
         elif [ "$CMD" = learn ]; then say "OK learn $MEM_DONE | uak next shows it to whoever works there"
+        elif [ "$CMD" = away ]; then say "OK away $AGENT | out of the reviewer rotation; messages to you reach your tasks; ${AWAY_TASKS:-0} claim(s) keep their leases. Any uak command brings you back."
         elif [ "$CMD" = retire ]; then say "OK retire$RETIRE_NAMES | out of the reviewer rotation; a new claim brings an identity back"
         elif [ "$CMD" = followup ]; then say "OK followup $NEW_ID (after $ID, same Paths) | take it: bash .uak/bin/wt new $NEW_ID --agent ${AGENT}"
         elif [ "$REVIEW_STARTED" = yes ]; then say "OK review --start $ID | yours for $(( ${UAK_REVIEW_LOCK_SECONDS:-1200} / 60 )) min; finish with --verdict"
@@ -838,7 +997,11 @@ transaction() {
           case "$CMD" in
             done) [ "$(field "$RECORD" State)" != REVIEW ] ||
                     say "Next: bash .uak/bin/uak wait $ID --for approve (one call; returns on approve or reject). Meanwhile: uak next for other work; do not poll status.";;
-            claim) say "Before reading files: bash .uak/bin/uak map show (structure) · bash .uak/bin/uak recall $ID (lessons for these paths).";;
+            # The task's slice of the code map, not a pointer to it (MLB, v5 week: 9 map calls in 67 tasks).
+            claim) brief=$(bash "$UAK_BIN/map" brief "$ID" --paths "$PATHS" --backlog "$BACKLOG" 2>/dev/null | head -n 10)
+                   [ -z "$brief" ] || say "$brief"
+                   say "Query, do not open whole files: uak map find NAME · callers NAME · users FILE · recall $ID (lessons)."
+                   mem_for_task "$ID";;
           esac
         fi
       fi
@@ -872,6 +1035,9 @@ print_task() {
     say "Branch: $(field "$RECORD" Branch)"
     say "Worktree: $(field "$RECORD" Worktree)"
     say "Next: $(field "$RECORD" Next)"
+    [ -z "$(field "$RECORD" Progress)" ] || say "Progress: $(field "$RECORD" Progress)"
+    [ -z "$(field "$RECORD" Away)" ] || [ "$(field "$RECORD" Away)" -lt "$(field "$RECORD" Updated)" ] 2>/dev/null ||
+      say "Away: its session closed $(( (NOW - $(field "$RECORD" Away)) / 60 )) min ago (uak away); the lease still runs"
     say "Worklog: $WL (claims branch)"
     if [ "$SHOW_SUMMARY" = yes ] || [ "$CMD" = handoff ]; then
       say "Live summary:"; summary_text
@@ -924,10 +1090,31 @@ print_digest() {
     esac
   done
   [ "$found" = yes ] || say "No pending reviews or blockers."
+  for f in "$TX"/tasks/*.md; do
+    [ -f "$f" ] || continue
+    m=$(task_stalled "$f"); [ -n "$m" ] || continue
+    say "$(field "$f" ID) | STALLED | $(field "$f" Owner) | no work moved in $m min · $(field "$f" Progress | awk -F' · ' '{print $1 " · " $2}')"
+  done
   [ ! -f "$TX/DECISIONS.md" ] || grep '^-' "$TX/DECISIONS.md" | tail -n 5
   freeze_warning
   human_msgs=$(msg_select human | tail -n 10)
   [ -z "$human_msgs" ] || { say "Agent messages for humans (last 5):"; say "$human_msgs"; }
+  # Capacity: tasks waiting vs agents online and idle. The commands for it are human ones (`up`, `graph --assign`),
+  # so the human's digest is where they come up. Why (MLB hackathon): `up` 0 calls, `graph --assign` 3.
+  local avail idle online
+  avail=$(awk '/^## [A-Z][A-Z0-9]*-[0-9]/ {print $2}' "$BACKLOG" 2>/dev/null | while read -r t; do
+    st=$(field "$TX/tasks/$t.md" State); [ -z "$st" ] || [ "$st" = AVAILABLE ] && echo "$t"; done | wc -l | tr -d ' ')
+  msg_seen_all > "$TXROOT/seen"
+  online=$(awk -v now="$NOW" -v p="$(msg_presence)" '$1 == "A" {a[$2] = 1} $1 == "H" {h[$2] = 1} $1 == "S" && now - $3 <= p {s[$2] = 1}
+    END {for (n in s) if (!(n in a) && !(n in h) && n != "scheduler" && n != "github") print n}' "$TXROOT/seen")
+  local busy=' ' c n; idle=0
+  for c in "$TX"/claims/*.md; do [ -f "$c" ] || continue; case "$(field "$c" State)" in CLAIMED|BLOCKED) busy="$busy$(field "$c" Owner) ";; esac; done
+  for n in $online; do case "$busy" in *" $n "*) ;; *) idle=$((idle + 1));; esac; done
+  if [ "${avail:-0}" -ge 3 ] && [ "$idle" -eq 0 ]; then
+    say "Capacity: $avail tasks wait and no idle agent is online. More hands: bash .uak/bin/uak up N --tool claude (one worktree and agent each), or uak graph --assign for who takes what next."
+  elif [ "${avail:-0}" -gt 0 ] && [ "$idle" -gt 0 ]; then
+    say "Capacity: $avail tasks wait, $idle idle agent(s) online: uak graph --assign suggests who takes which."
+  fi
   # The bill, from what every machine published (uak tokens --publish; the Stop hook does it every 30 min).
   if ls "$TX"/tokens/*.md >/dev/null 2>&1; then
     sed -n 's/^- //p' "$TX"/tokens/*.md | awk -F' [|] ' '{t = $6 + $7 + $8 + $9; T += t; R += $8; k[$1] += t}
@@ -936,6 +1123,7 @@ print_digest() {
             printf "Tokens: %s, cache hit %d%%%s · detail: uak tokens --team\n", M(T), 100 * R / T, (b != "" ? sprintf(", top task %s %s", b, M(k[b])) : "") }'
   fi
   say "Rule: no answer in 15 min → recorded reversible decision, take another task."
+  say "Everything on one page (progress, agents, conversation, reviews, black box): bash .uak/bin/uak dash --watch --open"
 }
 # Repeated reads: the same `status`/`next`/`digest` output in the same agent session prints one line.
 # The session is the harness process (grandparent of uak); a new session or --full prints everything.
@@ -1082,7 +1270,7 @@ lint_all() {
   [ "$LINT_ERRORS" -eq 0 ] || { say "LINT_FAILED $LINT_ERRORS"; return 1; }
   say "LINT_OK"
 }
-PLAN_FILE= ID= BRANCH= WORKTREE= NEXT_TEXT= REQUEST_NEXT= TOKEN= NEW_STATE= LOG_TEXT= PR_URL= EVIDENCE=
+PLAN_FILE= PLAN_AMEND=no ID= BRANCH= WORKTREE= NEXT_TEXT= REQUEST_NEXT= TOKEN= NEW_STATE= LOG_TEXT= PR_URL= EVIDENCE=
 MERGE_COMMIT= REVIEWER= CANCEL_REASON=
 REVIEW_LEARN=no WAIT_FOR=message WAIT_TIMEOUT=${UAK_WAIT_TIMEOUT:-540} WAIT_EVERY=${UAK_WAIT_EVERY:-15}
 EXPIRED=no SHOW_SUMMARY=no LINT_SECRETS=no QUIET=no SESSION_ONLY=no ALLOW_INFLIGHT=no ALLOW_IDS= ALLOW_DONE= REVIEW_NOTE= FULL=no REVIEW_START=no REVIEW_STARTED=no
@@ -1125,10 +1313,14 @@ case "$CMD" in
     if [ "$#" -gt 0 ] && valid_id "$(norm_id "$1")"; then ID=$(norm_id "$1"); shift
     elif [ "$#" -gt 0 ]; then case "$1" in --*) ;; *) MEM_PATHS=$1; shift;; esac; fi;;
   plan)
-    [ "$#" -gt 0 ] && [ -f "$1" ] || die "Usage: plan FILE (## ID sections in TASKS.md format)."
+    [ "$#" -gt 0 ] && [ -f "$1" ] || die "Usage: plan FILE [--amend] (## ID sections in TASKS.md format)."
     PLAN_FILE=$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1"); shift
     [ -n "$HUMAN" ] || die "plan publishes backlog: needs UAK_HUMAN (a human authorizes it)."
     identity;;
+  away) identity;;
+  pr-sync)
+    if [ "$#" -gt 0 ] && valid_id "$(norm_id "$1")"; then ID=$(norm_id "$1"); shift; fi
+    [ -n "$AGENT" ] || AGENT=scheduler; identity;;
   retire)
     [ "$#" -gt 0 ] || die "Usage: retire NAME... (an identity that no longer runs; its human or the agent itself)."
     while [ "$#" -gt 0 ]; do case "$1" in --*) break;; *[!A-Za-z0-9_.-]*) die "Invalid identity: $1";; *) RETIRE_NAMES="$RETIRE_NAMES $1";; esac; shift; done
@@ -1146,13 +1338,15 @@ while [ "$#" -gt 0 ]; do
     --start) [ "$CMD" = review ] || die "Invalid option: $opt"; REVIEW_START=yes;;
     --stop) [ "$CMD" = review ] || die "Invalid option: $opt"; REVIEW_STOP=yes;;
     --learn) [ "$CMD" = review ] || die "Invalid option: $opt"; REVIEW_LEARN=yes;;
+    --amend) [ "$CMD" = plan ] || die "Invalid option: $opt"; PLAN_AMEND=yes;;
+    --similar) [ "$CMD" = recall ] || die "Invalid option: $opt"; MEM_SIMILAR=yes;;
     --ack|--all|--peek|--human)
       [ "$CMD" = inbox ] || die "Invalid option: $opt"
       case "$opt" in --ack) MSG_ACK=yes;; --all) MSG_MODE=all;; --peek) MSG_MODE=peek;; --human) MSG_MODE=human;; esac;;
     --kind)
       [ "$CMD" = msg ] && [ "$#" -gt 0 ] || die "Invalid option: $opt"
       MSG_KIND=$1; shift; msg_valid_kind "$MSG_KIND" || die "--kind: info|request|contract|blocker|reply|review|approve|reject|integrated|human";;
-    --task|--branch|--worktree|--next|--read-summary|--state|--done|--decision|--why|--fails|--commands|--pr|--evidence|--integrated|--reviewer|--cancel|--sha|--verdict|--note|--command|--option|--reversible|--authorized|--class|--path|--rule|--reason|--to|--title|--for|--timeout|--forget)
+    --task|--branch|--worktree|--next|--read-summary|--state|--done|--decision|--why|--fails|--commands|--pr|--evidence|--integrated|--reviewer|--cancel|--sha|--verdict|--note|--command|--option|--reversible|--authorized|--class|--path|--rule|--reason|--to|--title|--for|--timeout|--forget|--search)
       [ "$#" -gt 0 ] || die "Missing value for $opt."
       value=$1; shift
       case "$opt" in
@@ -1186,6 +1380,7 @@ while [ "$#" -gt 0 ]; do
         --authorized) [ "$CMD" = decision ] || die "Invalid option."; DECISION_AUTHORIZED=$value;;
         --class) [ "$CMD" = decision ] || die "Invalid option."; DECISION_CLASS=$value;;
         --path) case "$CMD" in secret-exception) SECRET_PATH=$value;; learn|recall) MEM_PATHS=$value;; *) die "Invalid option.";; esac;;
+        --search) [ "$CMD" = recall ] || die "Invalid option."; MEM_SEARCH=$value;;
         --forget) [ "$CMD" = learn ] || die "Invalid option."; case "$value" in ''|*[!0-9]*) die "--forget takes a lesson number";; esac; MEM_FORGET=$value;;
         --rule) [ "$CMD" = secret-exception ] || die "Invalid option."; SECRET_RULE=$value;;
         --reason) case "$CMD" in secret-exception) SECRET_REASON=$value;; allow) WHY_TEXT=$value;; *) die "Invalid option.";; esac;;
@@ -1241,6 +1436,15 @@ if [ "$CMD" = checkpoint ]; then
 fi
 if [ "$CMD" = done ]; then
   case "$PR_URL" in https://*/*) ;; *) die "done needs --pr HTTPS URL.";; esac
+  # A GitHub PR URL must name this repository. Why (MLB hackathon): two tasks shipped with a PR link to another of
+  # the human's repositories; reviewers opened the wrong compare page.
+  pr_remote=$(git -C "$ROOT" config --get "remote.$REMOTE.url" 2>/dev/null || true)
+  case "$pr_remote:$PR_URL" in
+    *github.com*:https://github.com/*)
+      pr_repo=$(printf '%s' "$pr_remote" | sed 's@^git\@github.com:@@;s@^https://github.com/@@;s@^ssh://git\@github.com/@@;s@\.git$@@' | tr 'A-Z' 'a-z')
+      pr_url_repo=$(printf '%s' "${PR_URL#https://github.com/}" | cut -d/ -f1-2 | tr 'A-Z' 'a-z')
+      [ "$pr_repo" = "$pr_url_repo" ] || die "--pr names github.com/$pr_url_repo, but this repository is github.com/$pr_repo. The right link: bash .uak/bin/wt pr";;
+  esac
   [ -n "$EVIDENCE" ] || die "done needs --evidence."
   if [ -n "$REVIEWER" ]; then
     case "$REVIEWER" in *[!A-Za-z0-9_.-]*) die "Reviewer must be a valid identity.";; esac
@@ -1279,6 +1483,8 @@ case "$CMD" in
   inbox) msg_inbox_run; exit "$?";;
   wait) wait_run; exit "$?";;
   recall) recall_run; exit "$?";;
-  msg) QUIET=yes; transaction; say "OK msg $MSG_SENT";;
+  pr-sync) pr_sync_run; exit "$?";;
+  msg) QUIET=yes; transaction; say "OK msg $MSG_SENT"
+    [ ! -s "$TXROOT/msg-note" ] || sed 's/^/NOTE: /' "$TXROOT/msg-note" | awk '!seen[$0]++';;
   *) [ "$CMD" != tick ] || AGENT=${AGENT:-scheduler}; transaction;;
 esac
