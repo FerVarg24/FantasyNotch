@@ -31,6 +31,9 @@ public enum MatchupResolver {
     ///   temporada); no es un error y el llamador no debe aplicar backoff por ello. Con `opponent == nil` si es
     ///   semana de bye o el `matchup_id` no tiene pareja.
     /// - Throws: `MatchupResolverError.rosterNotFound` si el usuario no tiene roster en la liga.
+    ///
+    /// Los puntos de cada equipo salen de `Matchup.points`; `custom_points` (ajuste manual del comisionado) se
+    /// ignora porque ningún fixture lo trae y no está verificado cómo lo combina Sleeper.
     public static func resolve(
         week: Int,
         userId: String,

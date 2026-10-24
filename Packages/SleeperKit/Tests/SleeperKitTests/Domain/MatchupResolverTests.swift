@@ -57,14 +57,27 @@ struct MatchupResolverTests {
         #expect(!snapshot.isStale)
     }
 
-    @Test("Semana de bye: matchup_id nulo da opponent == nil y no hay slots vacíos")
+    @Test("Semana de bye: matchup_id nulo da opponent == nil")
     func byeWeek() async throws {
         let (bye, _) = try await resolveFixture(.bye, userId: "900000000000000004")
         let snapshot = try #require(bye)
 
         #expect(snapshot.me.rosterId == 3)
         #expect(snapshot.opponent == nil)
+    }
+
+    @Test("Slot vacío \"0\" real (roster 12, semana 14): se omite y los puntos siguen alineados con su titular")
+    func emptySlotInRealFixture() async throws {
+        let (resolved, matchups) = try await resolveFixture(.bye, userId: "900000000000000006")
+        let snapshot = try #require(resolved)
+        let raw = try #require(matchups.first { $0.rosterId == 12 })
+        let emptyIndex = try #require(raw.starters.firstIndex(of: "0"))
+
+        #expect(snapshot.me.rosterId == 12)
+        #expect(snapshot.me.starters.count == raw.starters.count - 1)
         #expect(!snapshot.me.starters.contains { $0.playerId == "0" })
+        let after = try #require(snapshot.me.starters.first { $0.playerId == raw.starters[emptyIndex + 1] })
+        #expect(after.points == raw.startersPoints[emptyIndex + 1])
     }
 
     @Test("Semana de playoffs con cruce: los rosters 1 y 5 comparten matchup_id")
