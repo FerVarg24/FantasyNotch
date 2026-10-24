@@ -276,3 +276,20 @@ Format rules (the CLI parses them):
   - Textos en `Localizable.xcstrings` en español e inglés
 - **Verify:** `bash scripts/verify.sh`
 - **Next step:** Agregar `accessibilityLabel` a la vista compacta
+
+## FN-015 · PlayerCache: formato antiguo válido y ruta compatible con sandbox (followup de FN-006)
+
+- **Type:** chore
+- **Priority:** P1
+- **Estimate:** 1 h
+- **Rubric / Spec:** ADR 0003 · notas de la revisión de FN-006 (#29)
+- **Depends on:** FN-006
+- **Uses contract:** None
+- **Related:** FN-011
+- **Paths:** Packages/SleeperKit/Sources/SleeperKit/Cache/, Packages/SleeperKit/Tests/SleeperKitTests/Cache/
+- **Freeze-Allowed:** no
+- **Acceptance:**
+  - Test: un `players-v1.json` con forma válida pero campos de otra versión (claves extra o `fetchedAt` en otro formato) se trata sin crash; si no decodifica, equivale a "sin caché"
+  - Test: `PlayerCache.defaultDirectory` cuelga de `URL.applicationSupportDirectory` y termina en `FantasyNotch` (sin rutas de HOME fijas, para que funcione dentro del sandbox)
+- **Verify:** `swift test --package-path Packages/SleeperKit --filter PlayerCacheTests`
+- **Next step:** Escribir el test de archivo con claves extra y `fetchedAt` inválido
