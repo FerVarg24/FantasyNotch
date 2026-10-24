@@ -293,3 +293,21 @@ Format rules (the CLI parses them):
   - Test: `PlayerCache.defaultDirectory` cuelga de `URL.applicationSupportDirectory` y termina en `FantasyNotch` (sin rutas de HOME fijas, para que funcione dentro del sandbox)
 - **Verify:** `swift test --package-path Packages/SleeperKit --filter PlayerCacheTests`
 - **Next step:** Escribir el test de archivo con claves extra y `fetchedAt` inválido
+
+## FN-016 · Polling en vivo a 60 s según el spike FN-003 (followup de FN-008)
+
+- **Type:** chore
+- **Priority:** P1
+- **Estimate:** 1 h
+- **Rubric / Spec:** `docs/spikes/003-sleeper-live-data.md` §3 y §4 · ADR 0003 · nota de la revisión de FN-008
+- **Depends on:** FN-008
+- **Uses contract:** None
+- **Related:** FN-011
+- **Paths:** Packages/SleeperKit/Sources/SleeperKit/Polling/, Packages/SleeperKit/Tests/SleeperKitTests/Polling/, docs/adr/0003-adaptive-polling.md
+- **Freeze-Allowed:** no
+- **Acceptance:**
+  - `PollingMode.live` y `minimumMatchupGap` pasan de 15 s a 60 s, definidos en un solo lugar; los demás intervalos (5 min día de juego, 30 min sin partidos) y el backoff ×2 con tope de 5 min no cambian
+  - Los tests de `MatchupPollerTests` que fijan 15 s se actualizan a 60 s: es un cambio de criterio autorizado por esta tarea, no se relaja ningún otro test
+  - ADR 0003: la tabla dice 60 s en vivo para `/matchups` y la sección de alternativas explica por qué se descarta 15 s (Sleeper cachea la respuesta 60 s, spike 003 §3); se anota que `/scores` a 15 s queda para cuando exista `GameWindowProviding`
+- **Verify:** `swift test --package-path Packages/SleeperKit --filter MatchupPollerTests`
+- **Next step:** Cambiar los tests de intervalo en vivo a 60 s y verlos fallar
