@@ -207,4 +207,33 @@ final class FakeResolver: MatchupResolving, @unchecked Sendable {
     }
 }
 
+/// Compuerta para dejar un paso del refresco "en vuelo": avisa de que se entró y no continúa hasta `release()`.
+/// No reacciona a la cancelación, como un `players()` real que ya está descargando.
+actor Gate {
+    private var entered = false
+    private var released = false
+    private var enteredWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func passThrough() async {
+        entered = true
+        enteredWaiters.forEach { $0.resume() }
+        enteredWaiters = []
+        if !released {
+            await withCheckedContinuation { releaseWaiters.append($0) }
+        }
+    }
+
+    func waitUntilEntered() async {
+        if entered { return }
+        await withCheckedContinuation { enteredWaiters.append($0) }
+    }
+
+    func release() {
+        released = true
+        releaseWaiters.forEach { $0.resume() }
+        releaseWaiters = []
+    }
+}
+
 let serverError = SleeperAPIError.server(status: 503)

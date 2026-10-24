@@ -140,8 +140,14 @@ public actor MatchupPoller {
         let clock = self.clock
         let task = Task { try await clock.sleep(for: delay) }
         delayTask = task
-        _ = try? await task.value
-        delayTask = nil
+        // La espera es una `Task` no estructurada: sin el manejador, cancelar el bucle no la cancelaría.
+        _ = try? await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        // Tras `pause()` + `resume()` otro bucle puede haber guardado ya su propia espera: solo se limpia la propia.
+        if delayTask == task { delayTask = nil }
     }
 
     /// Intervalo normal del modo; con fallos, ×2 por fallo con tope de 5 min, sin bajar nunca del intervalo normal.
@@ -157,9 +163,11 @@ public actor MatchupPoller {
     private func refresh() async {
         do {
             try await refreshSlowDataIfNeeded()
+            try Task.checkCancellation()  // un `pause()` durante la descarga no debe seguir llamando
             guard let slow else { return }
             await updateGameWindow(week: slow.week)
             try await acquireMatchupSlot()
+            try Task.checkCancellation()
             let matchups = try await api.matchups(leagueId: leagueId, week: slow.week)
             let input = MatchupInput(
                 week: slow.week, userId: userId, rosters: slow.rosters, leagueUsers: slow.leagueUsers,

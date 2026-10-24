@@ -20,7 +20,8 @@ struct MatchupPollerTests {
             mode: PollingMode = .live,
             resolver outcome: FakeResolver.Outcome = .snapshot,
             teamStates: [String: TeamPlayState] = [:],
-            behavior: SpyAPI.MatchupsBehavior? = nil
+            behavior: SpyAPI.MatchupsBehavior? = nil,
+            players: @escaping @Sendable () async throws -> [String: Player] = { [:] }
         ) {
             let clock = self.clock
             api = behavior.map { SpyAPI(clock: clock, behavior: $0) } ?? SpyAPI(clock: clock)
@@ -29,7 +30,7 @@ struct MatchupPollerTests {
             origin = clock.now()
             poller = MatchupPoller(
                 api: api, leagueId: "L1", userId: "U1", resolver: resolver, gameWindow: window,
-                players: { [:] }, clock: clock)
+                players: players, clock: clock)
         }
 
         /// Avanza el reloj y espera a que el bucle vuelva a quedar dormido.
@@ -188,6 +189,22 @@ struct MatchupPollerTests {
         await h.poller.resume()
         await h.clock.untilSleeping()
         #expect(h.api.matchupsCalls == 2)
+        await h.poller.stop()
+    }
+
+    @Test("pause() con un refresco ya en vuelo: no llega a llamar a /matchups cuando termina el paso pendiente")
+    func pauseDuringInFlightRefreshMakesNoMatchupsCall() async throws {
+        let gate = Gate()
+        let h = Harness(mode: .live, players: {
+            await gate.passThrough()
+            return [:]
+        })
+        await h.poller.start()
+        await gate.waitUntilEntered()
+        await h.poller.pause()
+        await gate.release()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(h.api.matchupsCalls == 0)
         await h.poller.stop()
     }
 
