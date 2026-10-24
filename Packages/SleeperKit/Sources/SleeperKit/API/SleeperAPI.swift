@@ -16,8 +16,16 @@ public protocol SleeperAPI: Sendable {
 public enum SleeperAPIError: Error, Equatable, Sendable {
     /// El cuerpo no tiene la forma esperada (`detail` describe la ruta del campo, sin datos del usuario).
     case decoding(detail: String)
-    /// Respuesta HTTP fuera de 200–299.
+    /// Respuesta HTTP fuera de 200–299 que no tiene un caso propio (por ejemplo, 400 o 403).
     case badStatus(Int)
+    /// 429: demasiadas llamadas. El poller debe espaciar los intentos (backoff exponencial, máx. 5 min).
+    case rateLimited
+    /// 5xx: fallo del servidor de Sleeper; `status` es el código recibido.
+    case server(status: Int)
+    /// La respuesta supera el límite de 20 MB.
+    case responseTooLarge
+    /// La petición no se envió: identificador inválido (vacío o con `/`) o respuesta de un host distinto.
+    case invalidRequest(detail: String)
     /// Fallo de red (sin conexión, timeout, etc.).
     case network(detail: String)
     /// El recurso no existe (por ejemplo, usuario o liga desconocidos).
