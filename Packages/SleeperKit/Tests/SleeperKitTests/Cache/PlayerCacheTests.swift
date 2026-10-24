@@ -157,4 +157,68 @@ struct PlayerCacheTests {
         #expect(mahomes.team == "KC")
         #expect(mahomes.injuryStatus == nil)
     }
+
+    // MARK: - Archivos de otra versión
+
+    private func writeRaw(_ json: String, in directory: URL) throws {
+        try Data(json.utf8).write(to: directory.appendingPathComponent(PlayerCache.fileName))
+    }
+
+    @Test("Un archivo válido con claves extra se lee y respeta el TTL")
+    func extraKeysAreIgnored() async throws {
+        let dir = try makeDirectory()
+        let fetchedAt = ISO8601DateFormatter().string(from: Self.t0)
+        try writeRaw(
+            """
+            {"schema": 2, "fetchedAt": "\(fetchedAt)", "players": {
+              "4046": {"player_id": "4046", "full_name": "Patrick Mahomes", "position": "QB", "team": "KC", "age": 30}
+            }}
+            """, in: dir)
+        let api = CountingAPI(.failure(.badStatus(500)))
+
+        let result = try await cache(in: dir, at: Self.t0 + Self.hour).players(using: api)
+
+        #expect(api.playersCalls == 0)
+        #expect(result["4046"]?.fullName == "Patrick Mahomes")
+    }
+
+    @Test("Un fetchedAt que no es una fecha ISO 8601 equivale a sin caché")
+    func invalidFetchedAtMeansNoCache() async throws {
+        for badDate in ["\"ayer\"", "1800000000", "null"] {
+            let dir = try makeDirectory()
+            try writeRaw(
+                """
+                {"fetchedAt": \(badDate), "players": {"4046": {"player_id": "4046", "position": "QB"}}}
+                """, in: dir)
+            let api = CountingAPI(.success(Self.sample))
+
+            let result = try await cache(in: dir, at: Self.t0).players(using: api)
+
+            #expect(api.playersCalls == 1, "fetchedAt=\(badDate) debía forzar una descarga")
+            #expect(result.keys.sorted() == ["4046", "KC"])
+        }
+    }
+
+    @Test("Un archivo sin la forma esperada y sin red propaga el error en vez de fallar")
+    func unreadableFileWithoutNetworkThrows() async throws {
+        let dir = try makeDirectory()
+        try writeRaw(#"{"fetchedAt": "ayer", "players": []}"#, in: dir)
+        let api = CountingAPI(.failure(.network(detail: "offline")))
+
+        await #expect(throws: SleeperAPIError.network(detail: "offline")) {
+            _ = try await cache(in: dir, at: Self.t0).players(using: api)
+        }
+    }
+
+    // MARK: - Ruta de producción
+
+    @Test("defaultDirectory cuelga de Application Support y termina en FantasyNotch")
+    func defaultDirectoryUsesApplicationSupport() {
+        let url = PlayerCache.defaultDirectory.standardizedFileURL
+        let appSupport = URL.applicationSupportDirectory.standardizedFileURL
+
+        #expect(url.lastPathComponent == "FantasyNotch")
+        #expect(url.deletingLastPathComponent() == appSupport)
+        #expect(PlayerCache.fileName == "players-v1.json")
+    }
 }
