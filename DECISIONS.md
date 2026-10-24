@@ -16,3 +16,4 @@ Why: a reversible option after 15 min keeps work moving.
 - 1792815865 | FN-015 | Solo tests: la implementación ya cumplía | Why: Los tests nuevos pasaron sin cambios en PlayerCache.swift
 - 1792869709 | FN-007 | resolve devuelve MatchupSnapshot? (nil = semana sin datos), solo rosterNotFound lanza; TeamGameState por Player.team; custom_points ignorado | Why: FN-008 no debe aplicar backoff en semana vacia; el advisor se consulto en plan y de nuevo despues del push (328 lineas)
 - 1792869768 | FN-008 | resolver y proveedor de ventana inyectados por protocolo; sin tipo de FN-007 (no esta en main); scores sin implementar (decision abierta, scope) | Why: TeamGameState de FN-007 aun no existe en main; api.sleeper.com fuera del threat model
+- 1792870009 | FN-008 | Merge manual del humano tras approve; scores sin implementar (decision scope abierta) | Why: modo marathon; api.sleeper.com fuera del threat model
