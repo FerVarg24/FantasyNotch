@@ -3,7 +3,7 @@ import os
 
 /// Refresca el matchup del usuario y publica `MatchupSnapshot` con una cadencia adaptativa (ADR 0003).
 ///
-/// - Cadencia por `PollingMode`; nunca dos llamadas a `/matchups` con menos de 15 s entre sí.
+/// - Cadencia por `PollingMode`; nunca dos llamadas a `/matchups` con menos de 60 s entre sí.
 /// - Ante cualquier error: backoff ×2 con tope de 5 min (sin acortar nunca el intervalo normal) y, tras
 ///   2 refrescos fallidos seguidos, el último snapshot se reemite con `isStale = true`.
 /// - `pause()`/`resume()` los llama quien conozca el sueño y el bloqueo de pantalla (FN-011); el poller no importa AppKit.
@@ -83,14 +83,14 @@ public actor MatchupPoller {
         invalidateLoop()
     }
 
-    /// Vuelve a refrescar de inmediato (respetando el mínimo de 15 s desde la última llamada a `/matchups`).
+    /// Vuelve a refrescar de inmediato (respetando el mínimo de 60 s desde la última llamada a `/matchups`).
     public func resume() {
         guard state == .paused else { return }
         state = .running
         launchLoop()
     }
 
-    /// Adelanta el próximo refresco. Si ya hay uno en curso o en espera del mínimo de 15 s, no hace nada.
+    /// Adelanta el próximo refresco. Si ya hay uno en curso o en espera del mínimo de 60 s, no hace nada.
     public func refreshNow() {
         guard state == .running else { return }
         delayTask?.cancel()
