@@ -210,13 +210,13 @@ Format rules (the CLI parses them):
 - **Priority:** P0
 - **Estimate:** 5 h
 - **Rubric / Spec:** `docs/specs/001-mvp/spec.md` (todos los criterios) · plan.md §Design
-- **Depends on:** FN-005, FN-006, FN-007, FN-008, FN-009, FN-010
+- **Depends on:** FN-005, FN-006, FN-007, FN-008, FN-009, FN-010, FN-017
 - **Uses contract:** None
 - **Related:** FN-013
 - **Paths:** App/AppModel/, App/System/, App/FantasyNotchApp.swift
 - **Freeze-Allowed:** no
 - **Acceptance:**
-  - `AppModel` (@Observable) crea `LiveSleeperAPI` + `PlayerCache` + `MatchupResolver` + `MatchupPoller` y conecta el stream al `NotchController`
+  - `AppModel` (@Observable) crea `LiveSleeperAPI` + `PlayerCache` + `MatchupResolver` + `ScoresGameWindow` + `MatchupPoller` y conecta el stream al `NotchController`. Aquí vive el puente entre FN-007 y FN-008: `MatchupResolver` → `MatchupResolving` y `TeamPlayState` → `TeamGameState`
   - Sin liga configurada abre el onboarding; al elegir liga arranca el poller sin reiniciar
   - `NSWorkspace` sleep/wake y bloqueo de pantalla → `pause()`/`resume()`
   - Sin notch en la pantalla principal → marcador en el título del `MenuBarExtra`
@@ -311,3 +311,24 @@ Format rules (the CLI parses them):
   - ADR 0003: la tabla dice 60 s en vivo para `/matchups` y la sección de alternativas explica por qué se descarta 15 s (Sleeper cachea la respuesta 60 s, spike 003 §3); se anota que `/scores` a 15 s queda para cuando exista `GameWindowProviding`
 - **Verify:** `swift test --package-path Packages/SleeperKit --filter MatchupPollerTests`
 - **Next step:** Cambiar los tests de intervalo en vivo a 60 s y verlos fallar
+
+## FN-017 · Proveedor real de ventana de juego: consulta a `scores` (GameWindowProviding)
+
+- **Type:** feature
+- **Priority:** P0
+- **Estimate:** 4 h
+- **Rubric / Spec:** `docs/spikes/003-sleeper-live-data.md` §1.3 y §2 · ADR 0003 · plan.md §Threat model (host nuevo)
+- **Depends on:** FN-005, FN-008
+- **Uses contract:** FN-008, FN-003
+- **Related:** FN-011, FN-016
+- **Paths:** Packages/SleeperKit/Sources/SleeperKit/API/Client/ScoresClient.swift, Packages/SleeperKit/Sources/SleeperKit/API/Client/ScoresGameWindow.swift, Packages/SleeperKit/Tests/SleeperKitTests/API/ScoresClientTests.swift, Packages/SleeperKit/Tests/SleeperKitTests/API/ScoresGameWindowTests.swift
+- **Freeze-Allowed:** no
+- **Acceptance:**
+  - `ScoresClient` pide `GET https://api.sleeper.com/scores/nfl/regular/{season}/{week}` (endpoint **no documentado**, otro host que `LiveSleeperAPI`): host fijo `api.sleeper.com` que rechaza otros hosts y redirecciones, segmentos de ruta validados como en `LiveSleeperAPI`, timeout 10 s, límite 20 MB, sin cookies ni caché, mismos errores tipados de `SleeperAPIError`, IDs con `privacy: .private`. No modifica `LiveSleeperAPI` ni su host `api.sleeper.app`
+  - Decodifica solo los campos que usa (`status`, `start_time`, `metadata.home_team`, `away_team`, `is_in_progress`, `is_over`, `has_started`, `canceled`), todos opcionales: un cambio de forma da `SleeperAPIError.decoding`, nunca un crash
+  - `ScoresGameWindow: GameWindowProviding` con reloj inyectable, según spike 003 §2: `.live` si algún partido tiene `is_in_progress == true` o `status == "in_game"`; `.gameDay` si hay partidos con `start_time` en las próximas 24 h o `has_started` sin `is_over`; `.idle` en otro caso. `teamStates` por código de equipo (`home_team`/`away_team`): `.inProgress`, `.preGame` u `.over`
+  - Si `scores` falla, `window(forWeek:)` lanza y el poller conserva el modo anterior (FN-008). Función pura de respaldo por horario (domingo 12:00–24:00 ET, jueves y lunes 20:00–24:00 ET → `.gameDay`) que nunca devuelve `.live`
+  - Tests con `URLProtocol` stub y JSON incrustado con la forma que documenta el spike; ninguna llamada real a la red en tests. El estado `in_game`, el reloj y el down & distance nunca se observaron en un partido en vivo: marcarlos "sin verificar" en el PR
+  - `security-reviewer` revisa el PR (host nuevo y endpoint no documentado); un hallazgo HIGH bloquea
+- **Verify:** `swift test --package-path Packages/SleeperKit --filter Scores`
+- **Next step:** Escribir un test que falle: un partido con `is_in_progress: true` da `.live`

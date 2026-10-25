@@ -27,7 +27,7 @@ Durante los partidos de la NFL, quien juega Fantasy en Sleeper tiene que abrir l
 - While a starter has not played yet, the system shall mark them as pending.
 
 **Actualización**
-- While NFL games are in progress, the system shall refresh the matchup at most every 15 s.
+- While NFL games are in progress, the system shall refresh the matchup at most every 60 s (Sleeper caches `/matchups` for 60 s, spike FN-003; changed from 15 s on 2026-10-24).
 - While no games are in progress, the system shall refresh at most every 30 min, and never more than once per day for `/players/nfl`.
 - When the Mac goes to sleep or the screen locks, the system shall stop polling; when it wakes, it shall refresh once immediately.
 - If Sleeper answers 429 or 5xx, the system shall back off exponentially (max 5 min) and keep showing the last score with a "desactualizado" indicator after 2 missed refreshes.
