@@ -333,7 +333,7 @@ Format rules (the CLI parses them):
 - **Verify:** `swift test --package-path Packages/SleeperKit --filter Scores`
 - **Next step:** Escribir un test que falle: un partido con `is_in_progress: true` da `.live`
 
-## FN-018 · Spec y plan: frescura y mínimo entre llamadas a 60 s (followup de FN-016)
+## FN-019 · Spec y plan: frescura y mínimo entre llamadas a 60 s (followup de FN-016)
 
 - **Type:** chore
 - **Priority:** P1
