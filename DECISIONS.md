@@ -21,3 +21,4 @@ Why: a reversible option after 15 min keeps work moving.
 - 1792886983 | FN-016 | Backoff en vivo pasa a 120/240/300 s porque parte del intervalo base; spec.md y plan.md quedan en 15 s (fuera de Paths) | Why: Los criterios de FN-016 autorizan actualizar solo los tests de 15 s; la frescura del spec la decide el humano
 - 1792887466 | FN-016 | Nada nuevo | Why: El unico hallazgo era el comentario; git grep de 15 s ya da 0
 - 1792887833 | FN-017 | temporada fija en el constructor; transporte duplicado de LiveSleeperAPI (no esta en mis Paths); fallback horario sin cablear (FN-011) | Why: LiveSleeperAPI.swift es de FN-005 y esta integrada; el poller conserva el modo si scores falla
+- 1792888117 | FN-017 | Merge manual tras approve; FN-018 propuesta para el poller | Why: MatchupPoller.swift es territorio de FN-016
