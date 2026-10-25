@@ -332,3 +332,22 @@ Format rules (the CLI parses them):
   - `security-reviewer` revisa el PR (host nuevo y endpoint no documentado); un hallazgo HIGH bloquea
 - **Verify:** `swift test --package-path Packages/SleeperKit --filter Scores`
 - **Next step:** Escribir un test que falle: un partido con `is_in_progress: true` da `.live`
+
+## FN-018 · Spec y plan: frescura y mínimo entre llamadas a 60 s (followup de FN-016)
+
+- **Type:** chore
+- **Priority:** P1
+- **Estimate:** 30 min
+- **Rubric / Spec:** ADR 0003 (enmendado en FN-016) · spike FN-003 §3 · decisión del humano de actualizar el spec
+- **Depends on:** FN-016
+- **Uses contract:** None
+- **Related:** None
+- **Paths:** docs/specs/001-mvp/spec.md, docs/specs/001-mvp/plan.md
+- **Freeze-Allowed:** no
+- **Acceptance:**
+  - `spec.md` §Non-functional, línea "Frescura": ya no promete ≤ 15 s; dice ≤ 60 s en el caso típico y ≤ 120 s en el peor (caché de 60 s de Sleeper más un ciclo de 60 s), a confirmar con la medición del spike FN-003
+  - `plan.md` fila "Denial of service": la prueba dice "nunca < 60 s entre llamadas a `/matchups`"
+  - `git grep -n '15 s' docs/specs/001-mvp/` no devuelve nada que describa el intervalo de `/matchups` (la línea de `spec.md` §Actualización ya dice 60 s)
+  - No se toca `.uak/PROJECT.md` (es del humano; sigue con 15 s en las líneas 7, 13, 54 y 62)
+- **Verify:** `! git grep -n -E 'Frescura: cambio visible ≤ 15|nunca < 15 s' -- docs/specs/001-mvp/`
+- **Next step:** Reescribir la línea de Frescura en `spec.md`
