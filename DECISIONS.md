@@ -23,3 +23,4 @@ Why: a reversible option after 15 min keeps work moving.
 - 1792887833 | FN-017 | temporada fija en el constructor; transporte duplicado de LiveSleeperAPI (no esta en mis Paths); fallback horario sin cablear (FN-011) | Why: LiveSleeperAPI.swift es de FN-005 y esta integrada; el poller conserva el modo si scores falla
 - 1792888117 | FN-017 | Merge manual tras approve; FN-018 propuesta para el poller | Why: MatchupPoller.swift es territorio de FN-016
 - 1792897247 | FN-019 | Frescura: 60 s tipico y 120 s peor caso teorico, a confirmar con la medicion del domingo 2026-10-25 | Why: Sleeper cachea /matchups 60 s y el poller lo consulta cada 60 s; PROJECT.md no se toca (es del humano)
+- 1792898045 | FN-009 | Logica pura en SleeperKit/Display (autorizado por humano); previews tras canImport(SleeperKitMocks); colapso por notch.isHovering con cooldown 0.8 s; colores oscuros forzados | Why: App no tiene target de tests; notch siempre negro
