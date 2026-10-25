@@ -34,6 +34,17 @@ public struct ScoreGame: Codable, Sendable, Equatable {
             self.hasStarted = hasStarted
             self.canceled = canceled
         }
+
+        /// Tolerante campo a campo: un campo ausente o con otro tipo queda en `nil` en vez de tirar abajo toda la lista.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            homeTeam = try? c.decodeIfPresent(String.self, forKey: .homeTeam)
+            awayTeam = try? c.decodeIfPresent(String.self, forKey: .awayTeam)
+            isInProgress = try? c.decodeIfPresent(Bool.self, forKey: .isInProgress)
+            isOver = try? c.decodeIfPresent(Bool.self, forKey: .isOver)
+            hasStarted = try? c.decodeIfPresent(Bool.self, forKey: .hasStarted)
+            canceled = try? c.decodeIfPresent(Bool.self, forKey: .canceled)
+        }
     }
 
     public let gameId: String?
@@ -54,6 +65,24 @@ public struct ScoreGame: Codable, Sendable, Equatable {
         self.status = status
         self.startTime = startTime
         self.metadata = metadata
+    }
+
+    /// Tolerante campo a campo, como `Metadata`. `start_time` acepta entero o número decimal (se trunca).
+    /// Solo un cuerpo que no sea un arreglo de objetos produce `SleeperAPIError.decoding`.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        gameId = try? c.decodeIfPresent(String.self, forKey: .gameId)
+        status = try? c.decodeIfPresent(String.self, forKey: .status)
+        if let integer = try? c.decodeIfPresent(Int.self, forKey: .startTime) {
+            startTime = integer
+        } else if let decimal = try? c.decodeIfPresent(Double.self, forKey: .startTime), decimal.isFinite,
+            abs(decimal) < Double(Int.max)
+        {
+            startTime = Int(decimal)
+        } else {
+            startTime = nil
+        }
+        metadata = try? c.decodeIfPresent(Metadata.self, forKey: .metadata)
     }
 }
 

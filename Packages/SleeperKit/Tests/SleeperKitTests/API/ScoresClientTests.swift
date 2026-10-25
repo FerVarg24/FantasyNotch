@@ -67,6 +67,25 @@ struct ScoresClientTests {
         #expect(games.first?.metadata == nil)
     }
 
+    @Test("Un campo que cambia de tipo queda en nil sin romper el resto del partido ni de la lista")
+    func fieldTypeChangeIsTolerated() async throws {
+        let body = """
+            [{"game_id": "a", "status": "pre_game", "start_time": "1792958700000",
+              "metadata": {"home_team": "ARI", "away_team": "DEN", "is_in_progress": 1, "canceled": "no"}},
+             {"game_id": "b", "status": "complete", "start_time": 1792958700000.5,
+              "metadata": {"home_team": "CHI", "away_team": "GB", "is_over": true}}]
+            """
+        let games = try await client(body: Data(body.utf8)).games(season: "2026", week: 7)
+        #expect(games.count == 2)
+        #expect(games[0].gameId == "a")
+        #expect(games[0].startTime == nil)
+        #expect(games[0].metadata?.homeTeam == "ARI")
+        #expect(games[0].metadata?.isInProgress == nil)
+        #expect(games[0].metadata?.canceled == nil)
+        #expect(games[1].metadata?.isOver == true)
+        #expect(games[1].startTime == 1_792_958_700_000)
+    }
+
     @Test("Si el endpoint no documentado cambia de forma → decoding, sin crash")
     func shapeChangeIsATypedError() async {
         await #expect {
