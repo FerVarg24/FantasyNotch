@@ -40,9 +40,15 @@ public enum ScoreDisplay {
         return .tied
     }
 
+    /// Etiqueta de VoiceOver; avisa de datos viejos para que el color no sea la única señal.
     public static func accessibilityLabel(for snapshot: MatchupSnapshot) -> String {
-        guard let opponent = snapshot.opponent else { return noMatchupText }
-        return "Tú \(points(snapshot.me.points)), rival \(points(opponent.points))"
+        let base: String
+        if let opponent = snapshot.opponent {
+            base = "Tú \(points(snapshot.me.points)), rival \(points(opponent.points))"
+        } else {
+            base = noMatchupText
+        }
+        return snapshot.isStale ? "\(base), desactualizado" : base
     }
 
     /// `true` si `value` supera a `other` según lo que se muestra (1 decimal).

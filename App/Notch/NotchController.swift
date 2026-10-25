@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import DynamicNotchKit
 import SleeperKit
 import SwiftUI
@@ -20,9 +21,11 @@ final class NotchController {
 
     private let model = NotchModel()
     private let screen: @MainActor () -> NSScreen
-    private var notch: DynamicNotch<ExpandedNotchView, CompactLeadingView, CompactTrailingView>?
+    private var notch: DynamicNotch<AnyView, AnyView, AnyView>?
     private var collapseTask: Task<Void, Never>?
     private var transition: Task<Void, Never>?
+    private var hoverObserver: AnyCancellable?
+    private var lastCollapse = Date.distantPast
 
     init(screen: @escaping @MainActor () -> NSScreen = { NSScreen.screens[0] }) {
         self.screen = screen
@@ -40,15 +43,19 @@ final class NotchController {
         for await snapshot in snapshots { show(snapshot) }
     }
 
-    func expand() {
+    /// Al colapsar, las zonas compactas reaparecen bajo el puntero: se ignora el hover un instante
+    /// para no reabrir en bucle. El clic siempre expande.
+    func expand(viaHover: Bool = false) {
         collapseTask?.cancel()
         guard presentation == .compact else { return }
+        if viaHover, Date().timeIntervalSince(lastCollapse) < 0.8 { return }
         move(to: .expanded)
     }
 
     func collapse() {
         collapseTask?.cancel()
         guard presentation == .expanded else { return }
+        lastCollapse = Date()
         move(to: .compact)
     }
 
@@ -86,15 +93,23 @@ final class NotchController {
         }
     }
 
-    private func makeNotchIfNeeded() -> DynamicNotch<ExpandedNotchView, CompactLeadingView, CompactTrailingView> {
+    private func makeNotchIfNeeded() -> DynamicNotch<AnyView, AnyView, AnyView> {
         if let notch { return notch }
         let model = model
-        let notch = DynamicNotch(hoverBehavior: .all) {
-            ExpandedNotchView(model: model, onHover: { [weak self] in self?.hoverChanged($0) })
+        let notch = DynamicNotch<AnyView, AnyView, AnyView>(hoverBehavior: .all) {
+            AnyView(ExpandedNotchView(model: model).environment(\.colorScheme, .dark))
         } compactLeading: {
-            CompactLeadingView(model: model, onExpand: { [weak self] in self?.expand() })
+            AnyView(
+                CompactLeadingView(model: model) { [weak self] in self?.expand(viaHover: $0) }
+                    .environment(\.colorScheme, .dark))
         } compactTrailing: {
-            CompactTrailingView(model: model, onExpand: { [weak self] in self?.expand() })
+            AnyView(
+                CompactTrailingView(model: model) { [weak self] in self?.expand(viaHover: $0) }
+                    .environment(\.colorScheme, .dark))
+        }
+        // `isHovering` cubre todo el contenedor en cualquier estado (spike FN-004).
+        hoverObserver = notch.$isHovering.removeDuplicates().sink { [weak self] inside in
+            MainActor.assumeIsolated { self?.hoverChanged(inside) }
         }
         self.notch = notch
         return notch

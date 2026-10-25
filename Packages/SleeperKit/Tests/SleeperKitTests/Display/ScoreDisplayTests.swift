@@ -55,6 +55,17 @@ final class ScoreDisplayTests: XCTestCase {
         )
     }
 
+    func testAccessibilityLabelMentionsStaleDataNotOnlyColor() {
+        XCTAssertEqual(
+            ScoreDisplay.accessibilityLabel(for: snapshot(me: 112.4, opponent: 98.7, isStale: true)),
+            "Tú 112.4, rival 98.7, desactualizado"
+        )
+        XCTAssertEqual(
+            ScoreDisplay.accessibilityLabel(for: snapshot(me: 10, opponent: nil, isStale: true)),
+            "Sin matchup, desactualizado"
+        )
+    }
+
     // MARK: Color por estado
 
     func testWinningLosingTied() {

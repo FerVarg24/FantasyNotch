@@ -4,7 +4,6 @@ import SwiftUI
 /// Vista expandida: cabecera con ambos equipos y dos columnas de titulares (docs/DESIGN.md).
 struct ExpandedNotchView: View {
     let model: NotchModel
-    let onHover: (Bool) -> Void
 
     var body: some View {
         Group {
@@ -17,7 +16,6 @@ struct ExpandedNotchView: View {
         .padding(12)
         .frame(width: 360)
         .frame(maxHeight: 260)
-        .onHover(perform: onHover)
     }
 
     private func content(_ snapshot: MatchupSnapshot) -> some View {
@@ -133,18 +131,18 @@ import SleeperKitMocks
 #Preview("Expandida · en vivo") {
     let model = NotchModel()
     model.snapshot = .previewLive
-    return ExpandedNotchView(model: model, onHover: { _ in }).background(.black)
+    return ExpandedNotchView(model: model).background(.black)
 }
 
 #Preview("Expandida · desactualizado") {
     let model = NotchModel()
     model.snapshot = .previewStale
-    return ExpandedNotchView(model: model, onHover: { _ in }).background(.black)
+    return ExpandedNotchView(model: model).background(.black)
 }
 
 #Preview("Expandida · bye") {
     let model = NotchModel()
     model.snapshot = .previewBye
-    return ExpandedNotchView(model: model, onHover: { _ in }).background(.black)
+    return ExpandedNotchView(model: model).background(.black)
 }
 #endif
