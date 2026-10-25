@@ -210,7 +210,7 @@ Format rules (the CLI parses them):
 - **Priority:** P0
 - **Estimate:** 5 h
 - **Rubric / Spec:** `docs/specs/001-mvp/spec.md` (todos los criterios) · plan.md §Design
-- **Depends on:** FN-005, FN-006, FN-007, FN-008, FN-009, FN-010, FN-017
+- **Depends on:** FN-005, FN-006, FN-007, FN-008, FN-009, FN-010, FN-016, FN-017, FN-018
 - **Uses contract:** None
 - **Related:** FN-013
 - **Paths:** App/AppModel/, App/System/, App/FantasyNotchApp.swift
@@ -332,6 +332,25 @@ Format rules (the CLI parses them):
   - `security-reviewer` revisa el PR (host nuevo y endpoint no documentado); un hallazgo HIGH bloquea
 - **Verify:** `swift test --package-path Packages/SleeperKit --filter Scores`
 - **Next step:** Escribir un test que falle: un partido con `is_in_progress: true` da `.live`
+
+## FN-018 · Poller: mínimo propio y backoff para la consulta de `scores` (followup de FN-008 y FN-017)
+
+- **Type:** chore
+- **Priority:** P0
+- **Estimate:** 3 h
+- **Rubric / Spec:** revisión de seguridad de FN-017 (hallazgos MED) · plan.md §Threat model, fila DoS · ADR 0003
+- **Depends on:** FN-016, FN-017
+- **Uses contract:** FN-008, FN-017
+- **Related:** FN-011
+- **Paths:** Packages/SleeperKit/Sources/SleeperKit/Polling/, Packages/SleeperKit/Tests/SleeperKitTests/Polling/
+- **Freeze-Allowed:** no
+- **Acceptance:**
+  - La consulta al `GameWindowProviding` tiene su propio mínimo de 60 s entre llamadas (o reutiliza la última `GameWindow` mientras no hayan pasado 60 s), también tras `pause()`/`resume()` repetidos y `refreshNow()`: un test con un proveedor espía cuenta las llamadas con el reloj falso
+  - Un `rateLimited`, `server` o `network` del proveedor de ventana cuenta como fallo y aplica el backoff ×2 con tope de 5 min al propio proveedor (se conserva el modo anterior); hoy el `try?` de `updateGameWindow` los traga
+  - Tras 3 fallos seguidos del proveedor, el modo `.live` baja a `.gameDay` hasta que una llamada vuelva a funcionar: sin confirmación de `scores` no se sostiene el modo más agresivo
+  - Los tests existentes de `MatchupPollerTests` no se relajan; solo se añaden los nuevos
+- **Verify:** `swift test --package-path Packages/SleeperKit --filter MatchupPollerTests`
+- **Next step:** Escribir un test que falle: tres `resume()` seguidos hacen una sola llamada al proveedor de ventana
 
 ## FN-019 · Spec y plan: frescura y mínimo entre llamadas a 60 s (followup de FN-016)
 
