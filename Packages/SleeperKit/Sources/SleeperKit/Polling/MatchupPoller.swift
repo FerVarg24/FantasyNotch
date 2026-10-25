@@ -3,7 +3,7 @@ import os
 
 /// Refresca el matchup del usuario y publica `MatchupSnapshot` con una cadencia adaptativa (ADR 0003).
 ///
-/// - Cadencia por `PollingMode`; nunca dos llamadas a `/matchups` con menos de 15 s entre sí.
+/// - Cadencia por `PollingMode`; nunca dos llamadas a `/matchups` con menos de 60 s entre sí.
 /// - Ante cualquier error: backoff ×2 con tope de 5 min (sin acortar nunca el intervalo normal) y, tras
 ///   2 refrescos fallidos seguidos, el último snapshot se reemite con `isStale = true`.
 /// - `pause()`/`resume()` los llama quien conozca el sueño y el bloqueo de pantalla (FN-011); el poller no importa AppKit.
