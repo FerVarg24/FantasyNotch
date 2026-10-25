@@ -74,7 +74,7 @@ API externa (Sleeper v1, solo lectura, sin auth): `https://api.sleeper.app/v1/�
 
 | Threat | Vector | Mitigation | Test |
 |---|---|---|---|
-| Spoofing | Un host falso responde como Sleeper | Solo HTTPS a `api.sleeper.app` y `sleepercdn.com` (ATS por defecto, sin excepciones); hosts fijos en el código | Test: el cliente rechaza URLs de otro host |
+| Spoofing | Un host falso responde como Sleeper | Solo HTTPS a `api.sleeper.app`, `sleepercdn.com` y, únicamente para el endpoint no documentado `scores` (FN-017), `api.sleeper.com` (ATS por defecto, sin excepciones); hosts fijos en el código, un cliente por host (`LiveSleeperAPI`, `ScoresClient`) | Test: cada cliente rechaza URLs de otro host y redirecciones |
 | Tampering | JSON malformado o inesperado | `Codable` estricto con campos opcionales donde Sleeper los omite; sin `eval`/ejecución de contenido | Fixtures inválidos → error tipado, sin crash |
 | Repudiation | — (sin acciones de escritura) | N/A | — |
 | Information disclosure | Username o IDs en logs; caché legible por otras apps | `os.Logger` con `privacy: .private` para username/IDs; App Sandbox (ADR 0004) aísla el contenedor | Revisión en PR (security-reviewer) |
