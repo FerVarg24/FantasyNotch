@@ -83,14 +83,14 @@ public actor MatchupPoller {
         invalidateLoop()
     }
 
-    /// Vuelve a refrescar de inmediato (respetando el mínimo de 15 s desde la última llamada a `/matchups`).
+    /// Vuelve a refrescar de inmediato (respetando el mínimo de 60 s desde la última llamada a `/matchups`).
     public func resume() {
         guard state == .paused else { return }
         state = .running
         launchLoop()
     }
 
-    /// Adelanta el próximo refresco. Si ya hay uno en curso o en espera del mínimo de 15 s, no hace nada.
+    /// Adelanta el próximo refresco. Si ya hay uno en curso o en espera del mínimo de 60 s, no hace nada.
     public func refreshNow() {
         guard state == .running else { return }
         delayTask?.cancel()

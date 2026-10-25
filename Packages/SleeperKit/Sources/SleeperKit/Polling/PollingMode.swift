@@ -9,7 +9,7 @@ public enum PollingMode: Sendable, Equatable, CaseIterable {
 
     public var interval: Duration {
         switch self {
-        case .live: .seconds(15)
+        case .live: .seconds(60)
         case .gameDay: .seconds(300)
         case .idle: .seconds(1800)
         }
@@ -18,7 +18,8 @@ public enum PollingMode: Sendable, Equatable, CaseIterable {
 
 public enum PollingPolicy {
     /// Mínimo entre dos llamadas a `/matchups`, cualquiera que sea su origen (tick, `refreshNow`, `resume`).
-    public static let minimumMatchupGap: Duration = .seconds(15)
+    /// 60 s porque Sleeper cachea esa respuesta 60 s (spike 003 §3): pedirla antes devuelve el mismo cuerpo.
+    public static let minimumMatchupGap: Duration = .seconds(60)
     /// Tope del backoff exponencial ante errores (429, 5xx, red).
     public static let maxBackoff: Duration = .seconds(300)
     /// Cada cuánto se vuelven a pedir semana, rosters, usuarios de la liga y jugadores.

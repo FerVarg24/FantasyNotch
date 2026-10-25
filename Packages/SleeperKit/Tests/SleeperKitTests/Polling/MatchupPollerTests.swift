@@ -47,18 +47,18 @@ struct MatchupPollerTests {
 
     // MARK: - Intervalos (ADR 0003)
 
-    @Test("En vivo: dos ticks a 15 s = dos llamadas a /matchups")
+    @Test("En vivo: dos ticks a 60 s = dos llamadas a /matchups")
     func liveTwoTicksTwoCalls() async {
         let h = Harness(mode: .live)
         await h.startAndSettle()
         #expect(h.api.matchupsCalls == 1)
-        await h.tick(15)
+        await h.tick(60)
         #expect(h.api.matchupsCalls == 2)
         await h.poller.stop()
     }
 
     @Test("Intervalo por modo: ni un segundo antes, y llamada exacta al cumplirse",
-        arguments: [(PollingMode.live, 15.0), (.gameDay, 300.0), (.idle, 1800.0)])
+        arguments: [(PollingMode.live, 60.0), (.gameDay, 300.0), (.idle, 1800.0)])
     func intervalPerMode(mode: PollingMode, interval: TimeInterval) async {
         let h = Harness(mode: mode)
         await h.startAndSettle()
@@ -77,15 +77,15 @@ struct MatchupPollerTests {
         let first = await iterator.next()
         #expect(first?.fetchedAt == h.origin)
         #expect(first?.isStale == false)
-        await h.tick(15)
+        await h.tick(60)
         let second = await iterator.next()
-        #expect(second?.fetchedAt == h.origin.addingTimeInterval(15))
+        #expect(second?.fetchedAt == h.origin.addingTimeInterval(60))
         await h.poller.stop()
     }
 
-    // MARK: - Mínimo de 15 s entre llamadas a /matchups
+    // MARK: - Mínimo de 60 s entre llamadas a /matchups
 
-    @Test("Dos refreshNow() seguidos no producen dos llamadas con menos de 15 s")
+    @Test("Dos refreshNow() seguidos no producen dos llamadas con menos de 60 s")
     func refreshNowRespectsFloor() async {
         let h = Harness(mode: .gameDay)
         await h.startAndSettle()
@@ -93,15 +93,15 @@ struct MatchupPollerTests {
         await h.clock.untilSleeping()
         await h.poller.refreshNow()
         #expect(h.api.matchupsCalls == 1)
-        await h.tick(14)
+        await h.tick(59)
         #expect(h.api.matchupsCalls == 1)
         await h.tick(1)
         #expect(h.api.matchupsCalls == 2)
-        #expect(h.api.matchupGaps(since: h.origin) == [0, 15])
+        #expect(h.api.matchupGaps(since: h.origin) == [0, 60])
         await h.poller.stop()
     }
 
-    @Test("resume() justo después de una llamada espera hasta completar los 15 s")
+    @Test("resume() justo después de una llamada espera hasta completar los 60 s")
     func resumeRespectsFloor() async {
         let h = Harness(mode: .gameDay)
         await h.startAndSettle()
@@ -110,7 +110,7 @@ struct MatchupPollerTests {
         await h.poller.resume()
         await h.clock.untilSleeping()
         #expect(h.api.matchupsCalls == 1)
-        await h.tick(12)
+        await h.tick(57)
         #expect(h.api.matchupsCalls == 2)
         await h.poller.stop()
     }
@@ -121,10 +121,10 @@ struct MatchupPollerTests {
     func backoffDoublesAndCaps() async {
         let h = Harness(mode: .live, behavior: { _ in throw serverError })
         await h.startAndSettle()
-        for delay: TimeInterval in [30, 60, 120, 240, 300, 300] {
+        for delay: TimeInterval in [120, 240, 300, 300, 300] {
             await h.tick(delay)
         }
-        #expect(h.api.matchupGaps(since: h.origin) == [0, 30, 60, 120, 240, 300, 300])
+        #expect(h.api.matchupGaps(since: h.origin) == [0, 120, 240, 300, 300, 300])
         await h.poller.stop()
     }
 
@@ -153,13 +153,13 @@ struct MatchupPollerTests {
         let good = await iterator.next()
         #expect(good?.isStale == false)
 
-        await h.tick(15)  // fallo 1: todavía no es stale, no se emite nada
-        await h.tick(30)  // fallo 2: se reemite el último bueno como stale
+        await h.tick(60)  // fallo 1: todavía no es stale, no se emite nada
+        await h.tick(120)  // fallo 2: se reemite el último bueno como stale
         let stale = await iterator.next()
         #expect(stale?.isStale == true)
         #expect(stale?.me == good?.me)
 
-        await h.tick(60)  // éxito
+        await h.tick(240)  // éxito
         let recovered = await iterator.next()
         #expect(recovered?.isStale == false)
         await h.poller.stop()
@@ -170,7 +170,7 @@ struct MatchupPollerTests {
         let h = Harness(mode: .live, behavior: { _ in throw serverError })
         var iterator = h.poller.snapshots.makeAsyncIterator()
         await h.startAndSettle()
-        await h.tick(30)
+        await h.tick(120)
         await h.poller.stop()
         #expect(await iterator.next() == nil)
     }
@@ -228,9 +228,9 @@ struct MatchupPollerTests {
         let h = Harness(mode: .live)
         await h.startAndSettle()
         h.window.fail()
-        await h.tick(15)
-        await h.tick(15)
-        #expect(h.api.matchupGaps(since: h.origin) == [0, 15, 15])
+        await h.tick(60)
+        await h.tick(60)
+        #expect(h.api.matchupGaps(since: h.origin) == [0, 60, 60])
         await h.poller.stop()
     }
 
@@ -239,8 +239,8 @@ struct MatchupPollerTests {
         let h = Harness(mode: .live, resolver: .none)
         var iterator = h.poller.snapshots.makeAsyncIterator()
         await h.startAndSettle()
-        await h.tick(15)
-        #expect(h.api.matchupGaps(since: h.origin) == [0, 15])
+        await h.tick(60)
+        #expect(h.api.matchupGaps(since: h.origin) == [0, 60])
         await h.poller.stop()
         #expect(await iterator.next() == nil)
     }
@@ -249,8 +249,8 @@ struct MatchupPollerTests {
     func resolverFailureBacksOff() async {
         let h = Harness(mode: .live, resolver: .failure)
         await h.startAndSettle()
-        await h.tick(30)
-        #expect(h.api.matchupGaps(since: h.origin) == [0, 30])
+        await h.tick(120)
+        #expect(h.api.matchupGaps(since: h.origin) == [0, 120])
         await h.poller.stop()
     }
 
