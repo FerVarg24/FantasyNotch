@@ -51,6 +51,16 @@ public enum ScoreDisplay {
         return snapshot.isStale ? "\(base), desactualizado" : base
     }
 
+    /// Pie de la vista expandida. Recibe `now` para que la vista lo refresque con un reloj y
+    /// para poder probarlo sin depender de la hora real.
+    public static func footerText(for snapshot: MatchupSnapshot, now: Date) -> String {
+        let elapsed = max(0, Int(now.timeIntervalSince(snapshot.fetchedAt)))
+        if snapshot.isStale {
+            return "Sin conexión · datos de hace \(max(1, elapsed / 60)) min"
+        }
+        return "Actualizado hace \(elapsed) s"
+    }
+
     /// `true` si `value` supera a `other` según lo que se muestra (1 decimal).
     public static func isLeading(_ value: Double, over other: Double) -> Bool {
         tenths(value) > tenths(other)

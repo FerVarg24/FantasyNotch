@@ -13,11 +13,9 @@ import SwiftUI
 /// - Sin notch `compact()` no muestra nada (fallback en la barra de menús: FN-011).
 @MainActor
 final class NotchController {
-    enum Presentation: Equatable {
-        case hidden, compact, expanded
-    }
+    var presentation: NotchPresentation { machine.presentation }
 
-    private(set) var presentation: Presentation = .hidden
+    private var machine = NotchPresentationMachine()
 
     private let model = NotchModel()
     private let screen: @MainActor () -> NSScreen
@@ -25,7 +23,6 @@ final class NotchController {
     private var collapseTask: Task<Void, Never>?
     private var transition: Task<Void, Never>?
     private var hoverObserver: AnyCancellable?
-    private var lastCollapse = Date.distantPast
 
     init(screen: @escaping @MainActor () -> NSScreen = { NSScreen.screens[0] }) {
         self.screen = screen
@@ -34,8 +31,7 @@ final class NotchController {
     /// Muestra el snapshot en compacto o, si ya está visible, solo actualiza los valores.
     func show(_ snapshot: MatchupSnapshot) {
         model.snapshot = snapshot
-        guard presentation == .hidden else { return }
-        move(to: .compact)
+        if let target = machine.show() { move(to: target) }
     }
 
     /// Consume el flujo del poller hasta que se cancele la tarea o termine el stream.
@@ -43,31 +39,25 @@ final class NotchController {
         for await snapshot in snapshots { show(snapshot) }
     }
 
-    /// Al colapsar, las zonas compactas reaparecen bajo el puntero: se ignora el hover un instante
-    /// para no reabrir en bucle. El clic siempre expande.
+    /// El clic siempre expande; el hover se ignora justo después de colapsar.
     func expand(viaHover: Bool = false) {
         collapseTask?.cancel()
-        guard presentation == .compact else { return }
-        if viaHover, Date().timeIntervalSince(lastCollapse) < 0.8 { return }
-        move(to: .expanded)
+        if let target = machine.expand(viaHover: viaHover, now: Date()) { move(to: target) }
     }
 
     func collapse() {
         collapseTask?.cancel()
-        guard presentation == .expanded else { return }
-        lastCollapse = Date()
-        move(to: .compact)
+        if let target = machine.collapse(now: Date()) { move(to: target) }
     }
 
     func close() {
         collapseTask?.cancel()
-        guard presentation != .hidden else { return }
-        move(to: .hidden)
+        if let target = machine.close() { move(to: target) }
     }
 
     private func hoverChanged(_ inside: Bool) {
         collapseTask?.cancel()
-        guard !inside, presentation == .expanded else { return }
+        guard machine.shouldCollapseOnHoverChange(inside: inside) else { return }
         // Pequeña espera para no cerrar si el puntero solo cruza un borde.
         collapseTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(400))
@@ -77,8 +67,7 @@ final class NotchController {
     }
 
     /// Encadena las transiciones: cada `await` de DynamicNotchKit tarda ~0.4 s.
-    private func move(to target: Presentation) {
-        presentation = target
+    private func move(to target: NotchPresentation) {
         let previous = transition
         transition = Task { [weak self] in
             await previous?.value

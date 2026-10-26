@@ -31,23 +31,18 @@ struct ExpandedNotchView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            Text(footer(snapshot))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            // El reloj re-renderiza cada segundo: sin él el pie no avanza hasta el próximo snapshot.
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                Text(ScoreDisplay.footerText(for: snapshot, now: context.date))
+                    .font(.caption2)
+                    .foregroundStyle(NotchPalette.secondary)
+            }
         }
     }
 
     private func leads(_ team: TeamScore, _ other: TeamScore?) -> Bool {
         guard let other else { return false }
         return ScoreDisplay.isLeading(team.points, over: other.points)
-    }
-
-    private func footer(_ snapshot: MatchupSnapshot) -> String {
-        let elapsed = max(0, Int(Date().timeIntervalSince(snapshot.fetchedAt)))
-        if snapshot.isStale {
-            return "Sin conexión · datos de hace \(max(1, elapsed / 60)) min"
-        }
-        return "Actualizado hace \(elapsed) s"
     }
 }
 

@@ -66,6 +66,35 @@ final class ScoreDisplayTests: XCTestCase {
         )
     }
 
+    // MARK: Pie de la vista expandida
+
+    func testFooterShowsSecondsSinceFetch() {
+        let s = snapshot(me: 1, opponent: 2)
+        let now = s.fetchedAt.addingTimeInterval(42.9)
+        XCTAssertEqual(ScoreDisplay.footerText(for: s, now: now), "Actualizado hace 42 s")
+    }
+
+    func testFooterAdvancesWithTheClock() {
+        let s = snapshot(me: 1, opponent: 2)
+        XCTAssertEqual(ScoreDisplay.footerText(for: s, now: s.fetchedAt.addingTimeInterval(5)), "Actualizado hace 5 s")
+        XCTAssertEqual(ScoreDisplay.footerText(for: s, now: s.fetchedAt.addingTimeInterval(6)), "Actualizado hace 6 s")
+    }
+
+    func testFooterNeverShowsNegativeSeconds() {
+        let s = snapshot(me: 1, opponent: 2)
+        XCTAssertEqual(ScoreDisplay.footerText(for: s, now: s.fetchedAt.addingTimeInterval(-3)), "Actualizado hace 0 s")
+    }
+
+    func testStaleFooterShowsMinutesWithAtLeastOne() {
+        let s = snapshot(me: 1, opponent: 2, isStale: true)
+        XCTAssertEqual(
+            ScoreDisplay.footerText(for: s, now: s.fetchedAt.addingTimeInterval(20)),
+            "Sin conexión · datos de hace 1 min")
+        XCTAssertEqual(
+            ScoreDisplay.footerText(for: s, now: s.fetchedAt.addingTimeInterval(190)),
+            "Sin conexión · datos de hace 3 min")
+    }
+
     // MARK: Color por estado
 
     func testWinningLosingTied() {
