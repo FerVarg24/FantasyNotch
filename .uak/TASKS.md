@@ -175,7 +175,7 @@ Format rules (the CLI parses them):
 - **Depends on:** FN-002, FN-004
 - **Uses contract:** FN-007
 - **Related:** FN-011
-- **Paths:** App/Notch/
+- **Paths:** App/Notch/, Packages/SleeperKit/Sources/SleeperKit/Display/, Packages/SleeperKit/Tests/SleeperKitTests/Display/
 - **Freeze-Allowed:** no
 - **Acceptance:**
   - Compacta: avatar a la izquierda, `mis – rival` con 1 decimal a la derecha; verde/rojo/blanco según el marcador; estado "Sin matchup" y "desactualizado"
