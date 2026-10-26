@@ -78,7 +78,7 @@ API externa (Sleeper v1, solo lectura, sin auth): `https://api.sleeper.app/v1/�
 | Tampering | JSON malformado o inesperado | `Codable` estricto con campos opcionales donde Sleeper los omite; sin `eval`/ejecución de contenido | Fixtures inválidos → error tipado, sin crash |
 | Repudiation | — (sin acciones de escritura) | N/A | — |
 | Information disclosure | Username o IDs en logs; caché legible por otras apps | `os.Logger` con `privacy: .private` para username/IDs; App Sandbox (ADR 0004) aísla el contenedor | Revisión en PR (security-reviewer) |
-| Denial of service | Respuesta enorme o lenta; bucle de reintentos; bloqueo de IP por exceso de llamadas | Timeout 10 s (30 s para `/players`), límite de tamaño de respuesta 20 MB, backoff exponencial con tope, intervalos mínimos garantizados por el poller | Tests del poller con reloj inyectado: nunca < 15 s entre llamadas |
+| Denial of service | Respuesta enorme o lenta; bucle de reintentos; bloqueo de IP por exceso de llamadas | Timeout 10 s (30 s para `/players`), límite de tamaño de respuesta 20 MB, backoff exponencial con tope, intervalos mínimos garantizados por el poller | Tests del poller con reloj inyectado: nunca < 60 s entre llamadas a `/matchups` |
 | Elevation of privilege | Dependencia comprometida | Una sola dependencia (DynamicNotchKit, MIT) fijada a versión exacta; App Sandbox con solo `network.client` | `uak decision` por dependencia nueva |
 
 ## Observability

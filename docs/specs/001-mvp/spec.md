@@ -39,7 +39,7 @@ Durante los partidos de la NFL, quien juega Fantasy en Sleeper tiene que abrir l
 - If the main screen has no notch, the system shall show the score in the menu bar instead of the notch.
 
 ## Non-functional
-- Frescura: cambio visible ≤ 15 s después de que Sleeper lo publique.
+- Frescura: cambio visible ≤ 60 s en el caso típico y ≤ 120 s en el peor (Sleeper cachea `/matchups` 60 s y la app lo consulta cada 60 s) después de que Sleeper lo publique. A confirmar con la medición del spike FN-003 (pendiente: domingo 2026-10-25).
 - CPU < 1 % promedio y < 100 MB de memoria con polling en vivo.
 - Red: ≤ 4 llamadas/min a `/matchups` con partidos en vivo; `/players/nfl` ≤ 1/día.
 - Privacidad: ningún dato sale de la Mac excepto las llamadas a `api.sleeper.app` y `sleepercdn.com`; sin telemetría; el username no aparece en logs.
