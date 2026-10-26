@@ -4,13 +4,13 @@
 
 ## Purpose
 Para jugadores de Fantasy Football en **Sleeper** que usan una MacBook con notch: ver el marcador de su matchup de la semana **en vivo, en el notch**, sin abrir el navegador ni la app del teléfono.
-Resultado medible: el marcador del notch refleja un cambio de puntos de Sleeper en ≤ 15 s (más la latencia propia de Sleeper), con impacto de energía "bajo" en el Monitor de Actividad.
+Resultado medible: el marcador del notch refleja un cambio de puntos de Sleeper en ≤ 60 s en el caso típico y ≤ 120 s en el peor (Sleeper cachea `/matchups` 60 s; más su latencia propia), con impacto de energía "bajo" en el Monitor de Actividad.
 
 ## Non-negotiable principles
 1. **Privado por diseño:** sin backend, sin cuentas, sin telemetría. El único dato del usuario es su username de Sleeper (público), guardado localmente. No hay secretos en el proyecto.
 2. Nothing reaches `main` without green CI and human CODEOWNERS approval.
 3. Every decision that is costly to reverse has an ADR (`docs/adr/`): target de macOS, dependencias nuevas, formato de caché, estrategia de polling.
-4. **Buen ciudadano de la API de Sleeper:** ≤ 1 llamada cada 15 s por liga con partidos en vivo, polling largo o pausado fuera de juego, `/players/nfl` como máximo 1 vez al día, backoff exponencial ante 429/5xx.
+4. **Buen ciudadano de la API de Sleeper:** ≤ 1 llamada a `/matchups` cada 60 s por liga con partidos en vivo, polling largo o pausado fuera de juego, `/players/nfl` como máximo 1 vez al día, backoff exponencial ante 429/5xx.
 5. **Discreta:** nunca roba el foco, no tapa contenido fuera del área del notch y en Macs sin notch cae a la barra de menú.
 6. **MIT y código limpio:** no se copia código de proyectos GPL (MenuScores, boring.notch); solo se usan como referencia de arquitectura.
 
@@ -51,7 +51,7 @@ xcodegen generate && xcodebuild -scheme FantasyNotch -destination 'platform=macO
 - Onboarding: el usuario escribe su username de Sleeper y elige una liga.
 - Vista compacta en el notch: avatar + marcador propio vs rival, en verde si va ganando y en rojo si va perdiendo.
 - Vista expandida (hover/clic): ambos equipos, puntos y proyección, jugadores pendientes de jugar.
-- Polling adaptativo: 15 s en vivo, minutos entre partidos, 30–60 min sin juegos, pausa al dormir la Mac.
+- Polling adaptativo: 60 s en vivo, minutos entre partidos, 30–60 min sin juegos, pausa al dormir la Mac.
 - Menú en la barra: cambiar de liga, refrescar, abrir al iniciar sesión, salir.
 
 **Fuera de alcance (por ahora):** otras plataformas (ESPN, Yahoo), varias ligas a la vez en el notch, notificaciones, iOS/widgets, firma y notarización, Sparkle.
@@ -59,7 +59,7 @@ xcodegen generate && xcodebuild -scheme FantasyNotch -destination 'platform=macO
 ## Non-functional requirements (measurable)
 | Attribute | Target | Measured by |
 |---|---|---|
-| Frescura | cambio visible ≤ 15 s tras la actualización en Sleeper | log con timestamp de respuesta vs cambio de `points` |
+| Frescura | cambio visible ≤ 60 s típico y ≤ 120 s en el peor caso tras la actualización en Sleeper | log con timestamp de respuesta vs cambio de `points` |
 | CPU | < 1 % promedio con polling en vivo | Instruments / Monitor de Actividad |
 | Memoria | < 100 MB residentes | Instruments |
 | Energía | impacto "bajo" en Monitor de Actividad | revisión manual en un día de juegos |
