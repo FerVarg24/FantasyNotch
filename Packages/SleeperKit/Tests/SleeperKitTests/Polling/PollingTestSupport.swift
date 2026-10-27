@@ -164,6 +164,10 @@ final class SpyAPI: SleeperAPI, @unchecked Sendable {
 final class FakeGameWindow: GameWindowProviding, @unchecked Sendable {
     private let lock = NSLock()
     private var result: Result<GameWindow, Error>
+    private var calls = 0
+
+    /// Veces que el poller ha consultado la ventana (incluye las que fallaron).
+    var callCount: Int { lock.withLock { calls } }
 
     init(_ mode: PollingMode, teamStates: [String: TeamPlayState] = [:]) {
         result = .success(GameWindow(mode: mode, teamStates: teamStates))
@@ -173,10 +177,15 @@ final class FakeGameWindow: GameWindowProviding, @unchecked Sendable {
         lock.withLock { result = .success(GameWindow(mode: mode, teamStates: teamStates)) }
     }
 
-    func fail() { lock.withLock { result = .failure(SleeperAPIError.network(detail: "scores")) } }
+    func fail() { fail(with: SleeperAPIError.network(detail: "scores")) }
+
+    func fail(with error: any Error) { lock.withLock { result = .failure(error) } }
 
     func window(forWeek week: Int) async throws -> GameWindow {
-        try lock.withLock { result }.get()
+        try lock.withLock {
+            calls += 1
+            return result
+        }.get()
     }
 }
 
