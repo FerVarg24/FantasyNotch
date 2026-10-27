@@ -194,7 +194,7 @@ Format rules (the CLI parses them):
 - **Depends on:** FN-002
 - **Uses contract:** FN-005
 - **Related:** FN-011
-- **Paths:** App/Onboarding/, App/MenuBar/, App/Settings/
+- **Paths:** App/Onboarding/, App/MenuBar/, App/Settings/, Packages/SleeperKit/Sources/SleeperKit/Onboarding/, Packages/SleeperKit/Tests/SleeperKitTests/Onboarding/
 - **Freeze-Allowed:** no
 - **Acceptance:**
   - Onboarding: campo de username → lista de ligas NFL de la temporada actual → elegir una; errores inline (no existe / sin red)
