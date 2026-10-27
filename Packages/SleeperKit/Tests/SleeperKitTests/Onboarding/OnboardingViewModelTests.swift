@@ -215,11 +215,68 @@ struct OnboardingViewModelTests {
         model.username = "manager_1"
 
         let first = Task { await model.submit() }
-        try await Task.sleep(for: .milliseconds(50))
+        // Test y ViewModel son @MainActor y `.loading` se fija antes del primer await: sin esperas fijas.
+        while model.phase != .loading { await Task.yield() }
         await model.submit()
         await first.value
 
         #expect(api.usernames.count == 1)
+    }
+
+    // MARK: - Señal de «liga configurada» para FN-011
+
+    @MainActor
+    private final class ConfiguredRecorder {
+        private(set) var calls: [String] = []
+        func record(_ userId: String, _ leagueId: String) { calls.append("\(userId)/\(leagueId)") }
+    }
+
+    @Test("onConfigured se llama una vez, con usuario y liga, solo al elegir liga")
+    func onConfiguredFiresOnSelect() async {
+        let recorder = ConfiguredRecorder()
+        let model = OnboardingViewModel(api: StubAPI(), store: InMemorySettingsStore())
+        model.onConfigured = { recorder.record($0, $1) }
+        model.username = "manager_1"
+
+        await model.submit()
+        #expect(recorder.calls.isEmpty)
+
+        model.select(StubAPI.twoLeagues[1])
+        model.select(StubAPI.twoLeagues[0])  // ya no vale: la fase es .done
+        #expect(recorder.calls == ["U1/L2"])
+    }
+
+    @Test("onConfigured también avisa al cambiar de liga, con el userId guardado")
+    func onConfiguredFiresOnChangeLeague() async {
+        let recorder = ConfiguredRecorder()
+        let model = OnboardingViewModel(api: StubAPI(), store: configuredStore())
+        model.onConfigured = { recorder.record($0, $1) }
+
+        await model.changeLeague()
+        model.select(StubAPI.twoLeagues[1])
+
+        #expect(recorder.calls == ["U1/L2"])
+    }
+
+    @Test("onConfigured no se llama si changeLeague() falla, si no hay ligas ni al cancelar")
+    func onConfiguredSilentWithoutNewLeague() async {
+        let recorder = ConfiguredRecorder()
+
+        let failing = OnboardingViewModel(
+            api: StubAPI(leagues: .failure(.network(detail: "x"))), store: configuredStore())
+        failing.onConfigured = { recorder.record($0, $1) }
+        await failing.changeLeague()
+
+        let empty = OnboardingViewModel(api: StubAPI(leagues: .success([])), store: configuredStore())
+        empty.onConfigured = { recorder.record($0, $1) }
+        await empty.changeLeague()
+
+        let cancelled = OnboardingViewModel(api: StubAPI(), store: configuredStore())
+        cancelled.onConfigured = { recorder.record($0, $1) }
+        await cancelled.changeLeague()
+        cancelled.cancelLeagueChange()
+
+        #expect(recorder.calls.isEmpty)
     }
 
     // MARK: - Configurado / saltar onboarding

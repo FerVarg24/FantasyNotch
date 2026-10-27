@@ -30,6 +30,10 @@ public final class OnboardingViewModel {
     public private(set) var phase: Phase
     public private(set) var failure: Failure?
 
+    /// Se llama una vez cada vez que se elige liga (onboarding o cambio de liga), después de guardar. No se llama
+    /// si el cambio falla, no hay ligas o se cancela: así quien lo use (FN-011) sabe cuándo reiniciar el poller.
+    @ObservationIgnored public var onConfigured: (@MainActor (_ userId: String, _ leagueId: String) -> Void)?
+
     @ObservationIgnored private let api: any SleeperAPI
     @ObservationIgnored private let store: any SettingsStoring
     /// Usuario cuyas ligas se están mostrando; se guarda al elegir liga.
@@ -80,6 +84,7 @@ public final class OnboardingViewModel {
         self.candidate = nil
         failure = nil
         phase = .done
+        onConfigured?(candidate.userId, league.leagueId)
     }
 
     /// Menú «cambiar de liga»: vuelve a listar las ligas del usuario guardado, sin pedir el username otra vez.

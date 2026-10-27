@@ -12,7 +12,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             LabeledContent("Usuario de Sleeper", value: username.isEmpty ? "—" : username)
-            LabeledContent("Liga", value: leagueId.isEmpty ? "—" : leagueId)
+            LabeledContent("ID de liga", value: leagueId.isEmpty ? "—" : leagueId)
 
             Button("Cambiar de liga…", action: onChangeLeague)
 
