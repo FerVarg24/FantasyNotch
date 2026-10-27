@@ -1,5 +1,5 @@
 # Verifiable config
-Config-Source: 57b45af54c0aadd4b9a62972999e2b5d26ef0613
+Config-Source: bf42fbb0ce2fa1b468ae705d0d5da0f69dcb58d5
 Backlog-Proposed-Epoch: 1792778673
 Backlog-Approved: yes
 Autonomy: yes
