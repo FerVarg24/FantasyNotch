@@ -6,6 +6,7 @@ import os
 /// - Cadencia por `PollingMode`; nunca dos llamadas a `/matchups` con menos de 60 s entre sí.
 /// - Ante cualquier error: backoff ×2 con tope de 5 min (sin acortar nunca el intervalo normal) y, tras
 ///   2 refrescos fallidos seguidos, el último snapshot se reemite con `isStale = true`.
+/// - La consulta de `scores` (`GameWindowProviding`) tiene su propio mínimo de 60 s y backoff; tras 3 fallos seguidos `.live` baja a `.gameDay`.
 /// - `pause()`/`resume()` los llama quien conozca el sueño y el bloqueo de pantalla (FN-011); el poller no importa AppKit.
 /// - `snapshots` conserva solo el último valor sin consumir. Quien lo use debe llamar a `stop()` al terminar.
 public actor MatchupPoller {
@@ -41,6 +42,8 @@ public actor MatchupPoller {
     private var lastMatchupsCall: Date?
     private var lastSnapshot: MatchupSnapshot?
     private var consecutiveFailures = 0
+    private var lastWindowCall: Date?
+    private var windowFailures = 0
 
     #if DEBUG
         private static let logger = Logger(subsystem: "com.fervarg.FantasyNotch", category: "poller")
@@ -196,11 +199,36 @@ public actor MatchupPoller {
             week: state.week, rosters: rosters, leagueUsers: leagueUsers, players: players, fetchedAt: now)
     }
 
-    /// Si el proveedor falla se conserva el modo anterior: un error de `scores` no debe cambiar la cadencia.
+    /// Consulta `scores` con su propio mínimo y backoff, aparte del de `/matchups`: un `resume()`, un
+    /// `refreshNow()` o un tick no deben multiplicar las llamadas a un host de terceros. Mientras no toque
+    /// consultar se reutiliza la última `GameWindow` (`mode` y `teamStates`). Si el proveedor falla se
+    /// conserva el modo anterior, salvo que sean 3 fallos seguidos: sin confirmación de `scores` no se
+    /// sostiene `.live`, el modo más agresivo, y baja a `.gameDay` hasta que una llamada vuelva a funcionar.
     private func updateGameWindow(week: Int) async {
-        guard let window = try? await gameWindow.window(forWeek: week) else { return }
-        mode = window.mode
-        teamStates = window.teamStates
+        let now = clock.now()
+        if let last = lastWindowCall, now.timeIntervalSince(last) < windowGap() { return }
+        // Se reserva antes de suspender: dos refrescos solapados (p. ej. `pause()` + `resume()`) no pueden llamar a la vez.
+        lastWindowCall = now
+        do {
+            let window = try await gameWindow.window(forWeek: week)
+            windowFailures = 0
+            mode = window.mode
+            teamStates = window.teamStates
+        } catch is CancellationError {
+            // Pausa o parada: no es un fallo del proveedor.
+        } catch {
+            windowFailures += 1
+            if windowFailures >= PollingPolicy.downgradeAfterWindowFailures, mode == .live {
+                mode = .gameDay
+            }
+        }
+    }
+
+    /// Espera mínima entre consultas a `scores`: 60 s, y ×2 por fallo seguido con tope de 5 min.
+    private func windowGap() -> TimeInterval {
+        let base = PollingPolicy.minimumWindowGap.timeInterval
+        guard windowFailures > 0 else { return base }
+        return min(base * pow(2, Double(windowFailures)), PollingPolicy.maxBackoff.timeInterval)
     }
 
     /// Reserva el derecho a llamar a `/matchups`. Comprobar y reservar ocurren sin suspensión de por medio,

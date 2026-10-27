@@ -20,6 +20,10 @@ public enum PollingPolicy {
     /// Mínimo entre dos llamadas a `/matchups`, cualquiera que sea su origen (tick, `refreshNow`, `resume`).
     /// 60 s porque Sleeper cachea esa respuesta 60 s (spike 003 §3): pedirla antes devuelve el mismo cuerpo.
     public static let minimumMatchupGap: Duration = .seconds(60)
+    /// Mínimo entre dos consultas al proveedor de ventana de juego (`scores`, otro host), independiente del de `/matchups`.
+    public static let minimumWindowGap: Duration = .seconds(60)
+    /// Fallos seguidos del proveedor de ventana tras los cuales `.live` baja a `.gameDay`.
+    public static let downgradeAfterWindowFailures = 3
     /// Tope del backoff exponencial ante errores (429, 5xx, red).
     public static let maxBackoff: Duration = .seconds(300)
     /// Cada cuánto se vuelven a pedir semana, rosters, usuarios de la liga y jugadores.
