@@ -74,12 +74,25 @@ final class NotchController {
             guard let self else { return }
             let notch = self.makeNotchIfNeeded()
             let screen = self.screen()
+            notch.transitionConfiguration = Self.transitionConfiguration()
             switch target {
             case .compact: await notch.compact(on: screen)
             case .expanded: await notch.expand(on: screen)
             case .hidden: await notch.hide()
             }
         }
+    }
+
+    /// Con «Reducir movimiento» las transiciones son instantáneas (DESIGN.md §Accesibilidad). Se lee en cada
+    /// transición, así que un cambio en Ajustes del Sistema se aplica sin reiniciar la app.
+    private static func transitionConfiguration() -> DynamicNotchTransitionConfiguration {
+        guard NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            return DynamicNotchTransitionConfiguration()
+        }
+        let instant = Animation.linear(duration: 0.001)
+        return DynamicNotchTransitionConfiguration(
+            openingAnimation: instant, closingAnimation: instant, conversionAnimation: instant,
+            skipIntermediateHides: true)
     }
 
     private func makeNotchIfNeeded() -> DynamicNotch<AnyView, AnyView, AnyView> {

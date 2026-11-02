@@ -10,7 +10,7 @@ struct ExpandedNotchView: View {
             if let snapshot = model.snapshot {
                 content(snapshot)
             } else {
-                Text(ScoreDisplay.noMatchupText).foregroundStyle(.secondary)
+                Text(NotchText.noMatchup).foregroundStyle(.secondary)
             }
         }
         .padding(12)
@@ -26,18 +26,21 @@ struct ExpandedNotchView: View {
                 if let opponent = snapshot.opponent {
                     TeamColumn(team: opponent, highlight: leads(opponent, snapshot.me), tone: .tied)
                 } else {
-                    Text(ScoreDisplay.noMatchupText)
+                    Text(NotchText.noMatchup)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             // El reloj re-renderiza cada segundo: sin él el pie no avanza hasta el próximo snapshot.
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                Text(ScoreDisplay.footerText(for: snapshot, now: context.date))
+                Text(NotchText.footer(for: snapshot, now: context.date))
                     .font(.caption2)
                     .foregroundStyle(NotchPalette.secondary)
             }
         }
+        // VoiceOver lee primero el resumen («Vas ganando 112.4 a 98.7») y luego recorre equipos y titulares.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(NotchText.summary(for: snapshot))
     }
 
     private func leads(_ team: TeamScore, _ other: TeamScore?) -> Bool {
@@ -53,16 +56,20 @@ private struct TeamColumn: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                TeamAvatarView(url: team.avatarURL, size: 20)
-                Text(team.teamName)
-                    .font(.callout.weight(highlight ? .semibold : .regular))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    TeamAvatarView(url: team.avatarURL, size: 20)
+                    Text(team.teamName)
+                        .font(.callout.weight(highlight ? .semibold : .regular))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                Text(ScoreDisplay.points(team.points))
+                    .font(.title3.weight(highlight ? .semibold : .regular).monospacedDigit())
+                    .foregroundStyle(NotchPalette.color(for: tone))
             }
-            Text(ScoreDisplay.points(team.points))
-                .font(.title3.weight(highlight ? .semibold : .regular).monospacedDigit())
-                .foregroundStyle(NotchPalette.color(for: tone))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(NotchText.team(team))
             ForEach(team.starters, id: \.playerId) { StarterRow(line: $0) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -82,7 +89,8 @@ private struct StarterRow: View {
             StatusIndicator(status: line.status)
         }
         .opacity(line.status == .pending ? 0.7 : 1)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(NotchText.starter(line))
     }
 }
 
@@ -96,11 +104,12 @@ private struct StatusIndicator: View {
             switch status {
             case .pending:
                 Image(systemName: "circle").foregroundStyle(.secondary)
-                    .accessibilityLabel("Pendiente")
+                    .accessibilityLabel(NotchText.status(.pending))
             case .playing:
                 Image(systemName: "circle.fill").foregroundStyle(.secondary)
-                    .opacity(pulse ? 1 : 0.4)
-                    .accessibilityLabel("Jugando")
+                    // Con «Reducir movimiento» el punto queda fijo y opaco, sin pulso.
+                    .opacity(reduceMotion || pulse ? 1 : 0.4)
+                    .accessibilityLabel(NotchText.status(.playing))
                     .onAppear {
                         guard !reduceMotion else { return }
                         withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
@@ -109,10 +118,10 @@ private struct StatusIndicator: View {
                     }
             case .done:
                 Image(systemName: "checkmark").foregroundStyle(.secondary)
-                    .accessibilityLabel("Terminado")
+                    .accessibilityLabel(NotchText.status(.done))
             case .unknown:
-                Text("\u{2013}").foregroundStyle(.secondary)
-                    .accessibilityLabel("Sin datos")
+                Text(verbatim: "\u{2013}").foregroundStyle(.secondary)
+                    .accessibilityLabel(NotchText.status(.unknown))
             }
         }
         .font(.caption2)

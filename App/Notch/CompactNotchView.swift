@@ -28,13 +28,13 @@ struct CompactTrailingView: View {
                 HStack(spacing: 3) {
                     // El color gris no es la única señal de datos viejos (DESIGN.md §Colores).
                     if snapshot.isStale { Image(systemName: "wifi.slash") }
-                    Text(ScoreDisplay.compactText(for: snapshot))
+                    Text(NotchText.compact(for: snapshot))
                 }
                 .foregroundStyle(NotchPalette.color(for: ScoreDisplay.tone(for: snapshot)))
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(ScoreDisplay.accessibilityLabel(for: snapshot))
+                .accessibilityLabel(NotchText.summary(for: snapshot))
             } else {
-                Text(ScoreDisplay.noMatchupText)
+                Text(NotchText.noMatchup)
                     .foregroundStyle(NotchPalette.secondary)
             }
         }
