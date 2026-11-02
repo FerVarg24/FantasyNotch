@@ -6,7 +6,9 @@ El marcador de tu matchup de **Sleeper** (Fantasy Football) en vivo, en el notch
 - **Expandido** (al pasar el cursor o hacer clic): ambos equipos con avatar, nombre y total, y cada titular con sus puntos y si está pendiente, jugando o terminado.
 - **Barra de menú:** refrescar ahora, cambiar de liga, abrir al iniciar sesión y salir. Si tu pantalla principal no tiene notch, el marcador se muestra en el título del menú.
 
-> **Captura:** pendiente. Todavía no hay una captura de la app en el repositorio.
+![Vista compacta del notch: a la izquierda el avatar genérico del equipo y a la derecha el marcador 116.6 – 95.3 en verde, que indica que vas ganando](docs/images/notch.png)
+
+*Vista compacta en el notch: avatar del equipo a la izquierda (aquí el genérico que se muestra cuando no hay foto) y `mis puntos – puntos del rival` a la derecha, en verde cuando vas ganando.*
 
 ## Requisitos
 
