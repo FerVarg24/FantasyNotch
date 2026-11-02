@@ -221,6 +221,106 @@ struct MatchupPollerTests {
         #expect(h.api.matchupsCalls == 1)
     }
 
+    // MARK: - Consulta de la ventana de juego (`scores`): mínimo propio y backoff
+
+    @Test("Tres pause()/resume() seguidos hacen una sola llamada al proveedor de ventana")
+    func repeatedResumeCallsWindowOnce() async {
+        let h = Harness(mode: .gameDay)
+        await h.startAndSettle()
+        for _ in 0..<3 {
+            await h.poller.pause()
+            await h.poller.resume()
+            await h.clock.untilSleeping()
+        }
+        #expect(h.window.callCount == 1)
+        await h.poller.stop()
+    }
+
+    @Test("refreshNow() no vuelve a consultar la ventana antes de 60 s")
+    func refreshNowDoesNotRecallWindow() async {
+        let h = Harness(mode: .gameDay)
+        await h.startAndSettle()
+        await h.poller.refreshNow()
+        await h.clock.untilSleeping()
+        await h.poller.refreshNow()
+        #expect(h.window.callCount == 1)
+        await h.tick(59)
+        #expect(h.window.callCount == 1)
+        await h.poller.stop()
+    }
+
+    @Test("Con la ventana en caché el poller usa el último modo; a los 60 s la consulta de nuevo")
+    func windowIsRefreshedAfterTheMinimum() async {
+        let h = Harness(mode: .live)
+        await h.startAndSettle()
+        #expect(h.window.callCount == 1)
+        h.window.set(.live, teamStates: ["KC": .inProgress])
+        await h.poller.pause()
+        h.clock.advance(by: 30)
+        await h.poller.resume()
+        await h.clock.untilSleeping()
+        #expect(h.window.callCount == 1, "30 s después: se reutiliza la última GameWindow")
+        #expect(h.resolver.lastInput?.teamStates.isEmpty == true)
+        await h.tick(30)
+        await h.tick(60)
+        #expect(h.window.callCount == 2)
+        #expect(h.resolver.lastInput?.teamStates["KC"] == .inProgress)
+        await h.poller.stop()
+    }
+
+    @Test("Un fallo del proveedor (rateLimited, server o network) duplica su propia espera, con tope de 5 min",
+        arguments: [SleeperAPIError.rateLimited, .server(status: 503), .network(detail: "scores")])
+    func windowFailureBacksOffOwnProvider(error: SleeperAPIError) async {
+        let h = Harness(mode: .live)
+        await h.startAndSettle()
+        h.window.fail(with: error)
+        // El poller sigue a 60 s (se conserva el modo), pero la ventana se pide a 60, 120, 240, 300… s.
+        var callsAt: [Int] = []
+        for second in stride(from: 60, through: 1_080, by: 60) {
+            await h.tick(60)
+            if h.window.callCount > (callsAt.count + 1) { callsAt.append(second) }
+        }
+        #expect(callsAt == [60, 180, 420, 720, 1_020])
+        await h.poller.stop()
+    }
+
+    @Test("Tras 3 fallos seguidos del proveedor, .live baja a .gameDay hasta que una llamada funcione")
+    func threeWindowFailuresDowngradeLiveUntilItRecovers() async {
+        let h = Harness(mode: .live)
+        await h.startAndSettle()
+        h.window.fail()
+        // Fallos en t = 60, 180 y 420 s.
+        for _ in 0..<7 { await h.tick(60) }
+        #expect(h.window.callCount == 4)
+        // Con el modo bajado el poller espera 300 s, no 60.
+        let before = h.api.matchupsCalls
+        await h.tick(299)
+        #expect(h.api.matchupsCalls == before)
+        h.window.set(.live)
+        await h.tick(1)
+        #expect(h.api.matchupsCalls == before + 1, "a 300 s de la última consulta el proveedor ya se puede volver a llamar")
+        #expect(h.window.callCount == 5)
+        // Recuperado: vuelve a 60 s.
+        await h.tick(60)
+        #expect(h.api.matchupsCalls == before + 2)
+        await h.poller.stop()
+    }
+
+    @Test("Dos fallos del proveedor no bajan .live; un éxito reinicia la cuenta")
+    func twoWindowFailuresKeepLive() async {
+        let h = Harness(mode: .live)
+        await h.startAndSettle()
+        h.window.fail()
+        for _ in 0..<3 { await h.tick(60) }  // fallos en 60 y 180
+        h.window.set(.live)
+        for _ in 0..<4 { await h.tick(60) }  // t = 420: la siguiente consulta permitida (180 + 240), éxito
+        #expect(h.window.callCount == 4)
+        h.window.fail()
+        await h.tick(60)  // fallo 1 de nuevo: sigue en .live
+        #expect(h.api.matchupGaps(since: h.origin).suffix(2) == [60, 60])
+        await h.poller.stop()
+    }
+
     // MARK: - Robustez
 
     @Test("Si el proveedor de ventana de juego falla se conserva el modo anterior")
