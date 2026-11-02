@@ -28,3 +28,4 @@ Why: a reversible option after 15 min keeps work moving.
 - 1793065804 | FN-010 | ViewModel y persistencia (protocolo) en Packages/SleeperKit/.../Onboarding/ con tests; vistas SwiftUI en App/ | Why: verify.sh solo corre swift test de SleeperKit y la app no tiene target de tests; mismo caso que FN-009
 - 1793067033 | FN-010 | Logica en SleeperKit/Onboarding con onConfigured; vistas en App/; LaunchAtLogin lee SMAppService.mainApp.status | Why: App sin target de tests; el advisor se consulto ANTES del push (~810 lineas); FN-011 necesita saber cuando cambia la liga
 - 1793072404 | FN-018 | Reservar lastWindowCall antes de suspender; cancelacion no cuenta como fallo | Why: actor reentrante: refrescos solapados no deben duplicar la llamada
+- 1793651017 | FN-011 | ScheduleFallback sin cablear (no ocultar fallos a FN-018); temporada diferida; sizingOptions preferredContentSize | Why: verify.sh no detecta crashes de runtime; fallback que no lanza anula el backoff
