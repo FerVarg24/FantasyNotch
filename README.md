@@ -47,7 +47,7 @@ El proyecto de Xcode se genera desde `project.yml`; no se versiona. Para empaque
 - Lo único tuyo que guarda, en local, es tu nombre de usuario de Sleeper (que es público), tu ID de usuario y el ID de tu liga, en las preferencias de la app.
 - También guarda en disco una copia mínima del catálogo de jugadores de Sleeper (ID, nombre, posición y equipo) para no descargarlo más de una vez al día.
 - Se ejecuta con **App Sandbox** y solo con permiso de red saliente.
-- Hace peticiones a `api.sleeper.app` (API pública y documentada) y a `api.sleeper.com` (estado de los partidos; es un endpoint **no documentado** de Sleeper y puede cambiar sin aviso).
+- Se conecta solo a tres hosts de Sleeper: `api.sleeper.app` (API pública y documentada), `api.sleeper.com` (estado de los partidos; es un endpoint **no documentado** de Sleeper y puede cambiar sin aviso) y `sleepercdn.com` (el CDN público desde el que se cargan los avatares).
 
 ## Limitaciones conocidas
 
