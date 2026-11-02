@@ -213,7 +213,7 @@ Format rules (the CLI parses them):
 - **Depends on:** FN-005, FN-006, FN-007, FN-008, FN-009, FN-010, FN-016, FN-017, FN-018
 - **Uses contract:** None
 - **Related:** FN-013
-- **Paths:** App/AppModel/, App/System/, App/FantasyNotchApp.swift
+- **Paths:** App/AppModel/, App/System/, App/FantasyNotchApp.swift, Packages/SleeperKit/Sources/SleeperKit/Integration/, Packages/SleeperKit/Tests/SleeperKitTests/Integration/
 - **Freeze-Allowed:** no
 - **Acceptance:**
   - `AppModel` (@Observable) crea `LiveSleeperAPI` + `PlayerCache` + `MatchupResolver` + `ScoresGameWindow` + `MatchupPoller` y conecta el stream al `NotchController`. Aquí vive el puente entre FN-007 y FN-008: `MatchupResolver` → `MatchupResolving` y `TeamPlayState` → `TeamGameState`
