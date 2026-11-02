@@ -1,16 +1,16 @@
 # STATE
 
 Phase: execution
-Updated: 1793650065
+Updated: 1793651011
 AVAILABLE: FN-013 FN-014 
-CLAIMED: FN-011 
+CLAIMED: -
 BLOCKED: -
-REVIEW: -
+REVIEW: FN-011 
 INTEGRATED: FN-001 FN-002 FN-003 FN-004 FN-005 FN-006 FN-007 FN-008 FN-009 FN-010 FN-012 FN-015 FN-016 FN-017 FN-018 FN-019 
 CANCELLED: -
 
 Claims (first 24; status --task ID shows detail):
-FN-011 | CLAIMED | fervarg24-2 | until 1793663730
+FN-011 | REVIEW | fervarg24-2 | until 1793737411
 
 Blockers: BLOCKED tasks; use status --task ID --summary.
 Current decisions (last 5):
