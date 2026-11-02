@@ -60,7 +60,7 @@ struct OnboardingView: View {
                 .onSubmit { Task { await model.submit() } }
 
             HStack {
-                if isLoading { ProgressView().controlSize(.small) }
+                if isLoading { ProgressView().controlSize(.small).accessibilityLabel("Cargando") }
                 Spacer()
                 Button("Continuar") { Task { await model.submit() } }
                     .keyboardShortcut(.defaultAction)

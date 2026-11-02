@@ -53,7 +53,7 @@ final class AppModel {
     }
 
     /// Texto de la barra de menús: `nil` = solo icono (con notch, el marcador va junto al notch).
-    var menuBarTitle: String? { MenuBarTitle.text(for: snapshot, hasNotch: hasNotch) }
+    var menuBarTitle: String? { MenuBarScoreTitle.text(for: snapshot, hasNotch: hasNotch) }
 
     // MARK: - Arranque
 
