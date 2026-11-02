@@ -370,3 +370,21 @@ Format rules (the CLI parses them):
   - No se toca `.uak/PROJECT.md` (es del humano; sigue con 15 s en las líneas 7, 13, 54 y 62)
 - **Verify:** `! git grep -n -E 'Frescura: cambio visible ≤ 15|nunca < 15 s' -- docs/specs/001-mvp/`
 - **Next step:** Reescribir la línea de Frescura en `spec.md`
+
+## FN-020 · README: captura real del notch (followup de FN-013)
+
+- **Type:** docs
+- **Priority:** P2
+- **Estimate:** 15 min
+- **Rubric / Spec:** criterio "captura" de FN-013, que quedó pendiente por decisión del humano
+- **Depends on:** FN-013
+- **Uses contract:** None
+- **Related:** None
+- **Paths:** README.md, docs/images/
+- **Freeze-Allowed:** no
+- **Acceptance:**
+  - Hay una captura **real** del notch de la app mostrando un matchup en `docs/images/notch.png`. La aporta el humano: un agente no puede inventarla ni generarla con datos falsos; si la captura usa datos de ejemplo (previews con `MockSleeperAPI`), el README lo dice en el pie de la imagen
+  - El README sustituye el aviso "Captura: pendiente" por la imagen, con texto alternativo que describa lo que se ve (equipo, marcador y estado)
+  - La imagen no contiene datos personales: ni el usuario de Sleeper real ni nombres de ligas privadas
+- **Verify:** `test -s docs/images/notch.png && grep -q 'docs/images/notch.png' README.md && ! grep -q 'Captura:\*\* pendiente' README.md`
+- **Next step:** Esperar la captura del humano y añadirla a `docs/images/notch.png`
