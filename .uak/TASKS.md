@@ -268,7 +268,7 @@ Format rules (the CLI parses them):
 - **Depends on:** FN-011
 - **Uses contract:** None
 - **Related:** None
-- **Paths:** App/Notch/, App/Onboarding/, App/MenuBar/, App/Settings/, App/Localizable.xcstrings
+- **Paths:** App/Notch/, App/Onboarding/, App/MenuBar/, App/Settings/, App/Localizable.xcstrings, App/AppModel/AppModel.swift
 - **Freeze-Allowed:** no
 - **Acceptance:**
   - Etiquetas de VoiceOver en la vista expandida ("Vas ganando 112.4 a 98.7")
