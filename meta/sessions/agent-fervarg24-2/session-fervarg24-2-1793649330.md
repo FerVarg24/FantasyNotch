@@ -1,0 +1,7 @@
+# Observed session
+Agent: fervarg24-2
+Session: fervarg24-2-1793649330
+Started: 1793649330
+Events: 1
+Checkpoints: 0
+Updated: 1793649330
