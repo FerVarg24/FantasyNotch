@@ -1,5 +1,8 @@
 import AppKit
 import SleeperKit
+#if DEBUG
+    import os
+#endif
 
 /// Traduce los avisos del sistema (sueño, pantalla apagada, bloqueo, cambio de pantallas) a acciones del poller.
 ///
@@ -8,6 +11,10 @@ import SleeperKit
 /// combinan en `PauseReasons`: despertar con la pantalla bloqueada no reanuda.
 @MainActor
 final class SystemEventsObserver {
+    #if DEBUG
+        private static let logger = Logger(subsystem: "com.fervarg.FantasyNotch", category: "app")
+    #endif
+
     private var reasons = PauseReasons()
     private var tokens: [(center: NotificationCenter, token: NSObjectProtocol)] = []
 
@@ -59,6 +66,12 @@ final class SystemEventsObserver {
     }
 
     private func set(_ reason: PauseReasons.Reason, active: Bool) {
-        if let action = reasons.set(reason, active: active) { onPauseAction(action) }
+        let action = reasons.set(reason, active: active)
+        #if DEBUG
+            Self.logger.debug(
+                "system event \(String(describing: reason), privacy: .public) active=\(active, privacy: .public) action=\(String(describing: action), privacy: .public)"
+            )
+        #endif
+        if let action { onPauseAction(action) }
     }
 }

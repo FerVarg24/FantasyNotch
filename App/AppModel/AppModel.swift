@@ -1,6 +1,9 @@
 import AppKit
 import Observation
 import SleeperKit
+#if DEBUG
+    import os
+#endif
 
 /// Une las piezas: onboarding → poller → notch y título de la barra de menús, con pausa por sueño y bloqueo.
 ///
@@ -14,6 +17,10 @@ final class AppModel {
     private(set) var hasNotch: Bool
 
     @ObservationIgnored let launchAtLogin = LaunchAtLoginModel()
+
+    #if DEBUG
+        private static let logger = Logger(subsystem: "com.fervarg.FantasyNotch", category: "app")
+    #endif
 
     @ObservationIgnored private let api: any SleeperAPI
     @ObservationIgnored private let scores: any ScoresProviding
@@ -109,7 +116,11 @@ final class AppModel {
             }
         }
 
-        if systemEvents?.isPaused == true {
+        let bornPaused = systemEvents?.isPaused == true
+        #if DEBUG
+            Self.logger.debug("poller created, born paused=\(bornPaused, privacy: .public)")
+        #endif
+        if bornPaused {
             pollerNeedsStart = true
         } else {
             Task { await poller.start() }
@@ -153,6 +164,9 @@ final class AppModel {
     /// se vuelve a abrir (si hay notch) para que no quede un estado «compacto» sin ventana (spike FN-004, riesgo 1).
     private func screensChanged() {
         hasNotch = ScreenInfo.menuBarScreenHasNotch
+        #if DEBUG
+            Self.logger.debug("screens changed, hasNotch=\(self.hasNotch, privacy: .public)")
+        #endif
         notch.close()
         if hasNotch, let snapshot { notch.show(snapshot) }
     }
