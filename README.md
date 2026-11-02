@@ -10,6 +10,10 @@ El marcador de tu matchup de **Sleeper** (Fantasy Football) en vivo, en el notch
 
 *Vista compacta en el notch: avatar del equipo a la izquierda (aquí el genérico que se muestra cuando no hay foto) y `mis puntos – puntos del rival` a la derecha, en verde cuando vas ganando.*
 
+![Vista expandida: dos columnas, "Your Team" con 116.6 puntos en verde y "Equipo 4" con 95.3, cada una con sus diez titulares, sus puntos y una marca de estado; al pie, "Actualizado hace 18 s"](docs/images/notch-expanded.png)
+
+*Vista expandida: ambos equipos con su total y cada titular con sus puntos y su estado (✓ terminado, ○ pendiente, ● jugando, – sin datos de su partido). Abajo, hace cuánto se actualizó. Las dos capturas son reales, de una liga de prueba.*
+
 ## Requisitos
 
 - macOS 14 o posterior, en un Mac con Apple Silicon (el release es solo `arm64`).
